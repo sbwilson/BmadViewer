@@ -28,8 +28,14 @@ enum FileActions {
 
     /// Every app that claims the file's type, default first, then by name.
     static func applications(for url: URL) -> [URL] {
-        let all = NSWorkspace.shared.urlsForApplications(toOpen: url)
         let def = defaultApplication(for: url)
+        // One row per app: a second copy of an app (another Pages.app) has the same bundle id.
+        var seen = Set(def.flatMap { Bundle(url: $0)?.bundleIdentifier }.map { [$0] } ?? [])
+        let all = NSWorkspace.shared.urlsForApplications(toOpen: url).filter { app in
+            guard app != def else { return true }
+            guard let id = Bundle(url: app)?.bundleIdentifier else { return true }
+            return seen.insert(id).inserted
+        }
         let rest = all.filter { $0 != def }.sorted { displayName($0).localizedCaseInsensitiveCompare(displayName($1)) == .orderedAscending }
         return (def.map { [$0] } ?? []) + rest
     }
