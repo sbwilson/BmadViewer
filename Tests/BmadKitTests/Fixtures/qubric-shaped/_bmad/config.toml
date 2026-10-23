@@ -1,0 +1,7 @@
+[core]
+project_name = "Fixture"
+output_folder = "{project-root}/docs/bmad"
+
+[modules.bmm]
+planning_artifacts = "{project-root}/docs/bmad/planning-artifacts"
+implementation_artifacts = "{project-root}/docs/bmad/implementation-artifacts"

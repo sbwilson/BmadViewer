@@ -1,0 +1,20 @@
+# Header comment, as Qubric keeps one.
+sprint: 5
+project: Fixture
+story_location: docs/bmad/implementation-artifacts
+development_status:
+  epic-1: done
+  1-1-the-first-story: done
+  1-2-a-key-truncated-at-sixty-characters-like-the-diagnostics-spl: done
+  epic-1-retrospective: done
+
+  epic-9: in-progress
+  9-15-a-story-left-in-review: review
+  9-16-capture-rs-core-rs-and-root-rs-are-split-by-concern-before-e: ready-for-dev
+  9-17-something-later: backlog
+  2-10-a-superseded-story: superseded
+  weird_key: done
+  epic-9-retrospective: optional
+action_items:
+  - id: "x"
+    status: in-progress
