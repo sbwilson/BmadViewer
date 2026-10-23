@@ -294,6 +294,16 @@ public enum TicketTree {
             warnings: warnings
         )
         project.documents = [initiativeDoc, initiative.appending(path: "tickets.toml")].filter(exists)
+        for epic in epics {
+            for doc in epic.documents where doc.lastPathComponent.hasSuffix("-retrospective.md") {
+                if let text = try? String(contentsOf: doc, encoding: .utf8) {
+                    project.retroActions += WorkItems.retrospectiveActions(text, source: doc, epic: epic.id)
+                }
+            }
+        }
+        ProjectLoader.loadDeferredWork(into: &project, directories: [
+            paths.implementation, storeRoot(root: root, paths: paths).appending(path: "implementation-artifacts"),
+        ])
         return project
     }
 

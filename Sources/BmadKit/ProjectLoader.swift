@@ -119,7 +119,39 @@ public enum ProjectLoader {
             warnings: warnings
         )
         project.documents = [buildOrderURL, epicsURL, statusFile].compactMap { $0 }
+
+        // Retrospectives: each epic's `epic-<n>-retro-*.md` beside the stories.
+        let storyFiles = ((try? FileManager.default.contentsOfDirectory(at: storyDir, includingPropertiesForKeys: nil)) ?? [])
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        for i in project.epics.indices {
+            let prefix = "epic-\(project.epics[i].id)-retro-"
+            project.epics[i].documents += storyFiles.filter { $0.lastPathComponent.hasPrefix(prefix) && $0.pathExtension == "md" }
+        }
+        let statusText = (try? String(contentsOf: statusFile, encoding: .utf8)) ?? ""
+        project.retroActions = WorkItems.sprintActionItems(statusText, statusFile: statusFile, root: root)
+        if project.retroActions.isEmpty {
+            // No tracked action items: read them from the retrospectives themselves.
+            for epic in project.epics {
+                for doc in epic.documents where doc.lastPathComponent.contains("-retro-") {
+                    if let text = try? String(contentsOf: doc, encoding: .utf8) {
+                        project.retroActions += WorkItems.retrospectiveActions(text, source: doc, epic: epic.id)
+                    }
+                }
+            }
+        }
+        loadDeferredWork(into: &project, directories: [paths.implementation, storyDir])
         return project
+    }
+
+    static func loadDeferredWork(into project: inout Project, directories: [URL?]) {
+        for dir in directories.compactMap({ $0 }) {
+            let url = dir.appending(path: "deferred-work.md")
+            if let text = try? String(contentsOf: url, encoding: .utf8) {
+                project.deferredWork = WorkItems.deferredWork(text, source: url)
+                project.deferredWorkFile = url
+                return
+            }
+        }
     }
 
     static func findStatusFile(root: URL, paths: ConfigResolver.Paths) -> URL? {

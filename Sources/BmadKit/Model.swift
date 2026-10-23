@@ -36,7 +36,7 @@ public struct Status: Hashable, Sendable {
         case "review", "in-review": .review
         case "ready-for-dev", "ready", "ready_for_dev", "drafted", "contexted": .ready
         // v7: no status yet, a planned entry with no file, or a build's draft are all backlog.
-        case "backlog", "todo", "planned", "not started", "draft": .backlog
+        case "backlog", "todo", "planned", "not started", "draft", "open", "proposed": .backlog
         case "built": .built
         case "done", "completed", "closed": .done
         case "superseded", "dropped", "cancelled", "canceled": .superseded
@@ -166,6 +166,12 @@ public struct Project: Sendable {
     public var sources: Sources
     /// Project-level files for the sidebar's Documents section.
     public var documents: [URL] = []
+    /// Retrospective action items, oldest epic first.
+    public var retroActions: [WorkItem] = []
+    /// Deferred-work ledger entries in file order.
+    public var deferredWork: [WorkItem] = []
+    /// The ledger file, when there is one.
+    public var deferredWorkFile: URL?
     /// Things the loader could not make sense of, shown rather than hidden.
     public var warnings: [String]
 

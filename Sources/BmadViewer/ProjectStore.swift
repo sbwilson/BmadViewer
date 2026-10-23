@@ -8,6 +8,16 @@ enum SidebarItem: Hashable {
     case all
     case epic(String)
     case document(URL)
+    case retroActions
+    case deferredWork
+
+    var workItemKind: WorkItem.Kind? {
+        switch self {
+        case .retroActions: .retroAction
+        case .deferredWork: .deferred
+        default: nil
+        }
+    }
 }
 
 @MainActor
@@ -20,6 +30,7 @@ final class ProjectStore {
 
     var sidebar: SidebarItem? = .queue
     var selectedStoryID: Story.ID?
+    var selectedWorkItemID: WorkItem.ID?
     var search = ""
     var hideFinished = false
 
@@ -103,7 +114,7 @@ final class ProjectStore {
         case .epic(let id): stories = project.epics.first { $0.id == id }?.stories ?? []
         case .active: stories = project.allStories.filter(\.status.isActive)
         case .all, .none: stories = project.allStories
-        case .queue, .document: stories = []
+        case .queue, .document, .retroActions, .deferredWork: stories = []
         }
         if hideFinished, sidebar != .active { stories = stories.filter { !$0.status.isTerminal } }
         let q = search.trimmingCharacters(in: .whitespaces)
@@ -113,6 +124,27 @@ final class ProjectStore {
             }
         }
         return stories
+    }
+
+    var selectedWorkItem: WorkItem? {
+        guard let id = selectedWorkItemID, let kind = sidebar?.workItemKind, let project else { return nil }
+        return (kind == .deferred ? project.deferredWork : project.retroActions).first { $0.id == id }
+    }
+
+    /// Items of one kind after search and the finished filter.
+    func visibleWorkItems(_ kind: WorkItem.Kind) -> [WorkItem] {
+        guard let project else { return [] }
+        var items = kind == .deferred ? project.deferredWork : project.retroActions
+        if hideFinished { items = items.filter { !$0.status.isTerminal } }
+        let q = search.trimmingCharacters(in: .whitespaces)
+        if !q.isEmpty {
+            items = items.filter { item in
+                item.label.localizedCaseInsensitiveContains(q) || item.id.localizedCaseInsensitiveContains(q)
+                    || item.title.localizedCaseInsensitiveContains(q) || (item.owner?.localizedCaseInsensitiveContains(q) ?? false)
+                    || item.fields.contains { $0.value.localizedCaseInsensitiveContains(q) }
+            }
+        }
+        return items
     }
 
     func queueEntry(for story: Story) -> QueueEntry? {

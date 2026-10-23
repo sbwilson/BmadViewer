@@ -45,6 +45,18 @@ A ticket shows three views: **Ticket** (its `tickets.toml` entry as text), **Sto
 
 `BmadViewer --dump <project>` prints what was read and exits, for comparing with `tickets.py next`.
 
+## Retro actions and deferred work
+
+The sidebar's **Review** section lists what is owed that is not a story, with open counts.
+
+| Source | Read as |
+| --- | --- |
+| `sprint-status.yaml` → `action_items` (v6) | retro actions: `id`, `epic`, `action`, `owner`, `status`, `ref`, plus `progress`/`resolution` |
+| each retrospective's `## Action items` (v7, or v6 with no `action_items`) | numbered/bulleted items or a table with an `Action` column, grouped by `###`; status `proposed` |
+| `deferred-work.md` in the implementation artifacts | canonical `### DW-<n>:` entries (one `key: value` per line, `gate:`, `status: done <date>`), and legacy `- source_spec:` / `- source_plan:` bullets, closed by a `disposition:` starting `fixed`, `closed`, `done`… |
+
+Retro actions group by epic, newest retrospective first; deferred work by status, newest first. Search matches every field, and **Hide finished** applies. Each item links to the line it is written on; paths in `location:` link to the files.
+
 ## Documents
 
 - Click a link or a file path in inline code (`scripts/x.py`) → opens in the default app.
@@ -55,4 +67,3 @@ A ticket shows three views: **Ticket** (its `tickets.toml` entry as text), **Sto
 ## Not yet
 
 - Tracker-backed ticket stores (`store` other than `repo`): `tracker_status` is read from leaf files, but nothing is synced.
-- Retrospective action items from `sprint-status.yaml`.

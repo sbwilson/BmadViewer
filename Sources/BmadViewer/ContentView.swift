@@ -59,12 +59,21 @@ struct ProjectView: View {
                 switch store.sidebar {
                 case .queue: QueueView(project: project)
                 case .document(let url): DocumentDetailView(url: url, project: project)
+                case .retroActions: WorkItemListView(project: project, kind: .retroAction)
+                case .deferredWork: WorkItemListView(project: project, kind: .deferred)
                 default: StoryListView(project: project)
                 }
             }
             .navigationSplitViewColumnWidth(min: 280, ideal: 360, max: 520)
         } detail: {
-            if let story = store.selectedStory {
+            if store.sidebar?.workItemKind != nil {
+                if let item = store.selectedWorkItem {
+                    WorkItemDetailView(item: item, project: project)
+                } else {
+                    ContentUnavailableView("Nothing selected", systemImage: "checklist",
+                                           description: Text("Choose an item to read it."))
+                }
+            } else if let story = store.selectedStory {
                 StoryDetailView(story: story, project: project)
             } else {
                 ContentUnavailableView("No story selected", systemImage: "doc.text",

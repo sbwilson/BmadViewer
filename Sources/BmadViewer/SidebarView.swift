@@ -22,6 +22,22 @@ struct SidebarView: View {
                     .tag(SidebarItem.all)
             }
 
+            if !project.retroActions.isEmpty || !project.deferredWork.isEmpty {
+                Section("Review") {
+                    if !project.retroActions.isEmpty {
+                        row("Retro actions", systemImage: "arrow.uturn.backward.circle",
+                            count: project.retroActions.filter { !$0.status.isTerminal }.count)
+                            .tag(SidebarItem.retroActions)
+                            .help("Open items; finished ones are in the list too")
+                    }
+                    if !project.deferredWork.isEmpty {
+                        row("Deferred work", systemImage: "tray.and.arrow.down",
+                            count: project.deferredWork.filter { !$0.status.isTerminal }.count)
+                            .tag(SidebarItem.deferredWork)
+                    }
+                }
+            }
+
             Section("Epics") {
                 ForEach(project.epics) { epic in
                     EpicRow(epic: epic).tag(SidebarItem.epic(epic.id))
@@ -53,6 +69,10 @@ struct SidebarView: View {
         .listStyle(.sidebar)
         .onChange(of: store.sidebar) { _, item in
             if case .queue = item { return }
+            if item?.workItemKind != nil {
+                store.selectedWorkItemID = nil
+                return
+            }
             if let id = store.selectedStoryID, !store.visibleStories.contains(where: { $0.id == id }) {
                 store.selectedStoryID = nil
             }

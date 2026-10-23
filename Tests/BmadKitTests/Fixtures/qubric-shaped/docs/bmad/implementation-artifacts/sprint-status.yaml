@@ -16,5 +16,17 @@ development_status:
   weird_key: done
   epic-9-retrospective: optional
 action_items:
-  - id: "x"
+  - id: "epic-1-retro-item-1-run-the-pipeline"
+    epic: 1
+    action: "Run the pipeline on f8ef7884 and record
+      the provenance (F2)"
+    owner: "Simon"
+    status: done
+    ref: "docs/bmad/implementation-artifacts/epic-1-retro-2026-09-01.md"
+  - id: "epic-9-retro-item-152-split-three-files"
+    epic: 9
+    action: "Split capture.rs, core.rs and root.rs by concern"
+    owner: "Simon (planning)"
     status: in-progress
+    progress: "Story 9.16 drafted"
+    ref: "docs/bmad/implementation-artifacts/missing-retro.md"

@@ -71,6 +71,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             for s in p.queue {
                 print("\(s.heading): \(s.entries.map(\.storyNumber).joined(separator: " "))")
             }
+            for (name, items) in [("Retro actions", p.retroActions), ("Deferred work", p.deferredWork)] {
+                let counts = Dictionary(grouping: items, by: \.status.raw).mapValues(\.count)
+                    .sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }.joined(separator: ", ")
+                print("\(name): \(items.count) (\(counts))")
+            }
             for w in p.warnings { print("warning: \(w)") }
             exit(0)
         } catch {

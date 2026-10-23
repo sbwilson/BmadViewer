@@ -23,6 +23,11 @@ public struct EpicsDocument: Sendable {
         }
 
         for line in lines {
+            // Only headings can start or end anything; skip the Regex for the rest.
+            guard line.hasPrefix("#") else {
+                if current != nil { buffer.append(line) }
+                continue
+            }
             if let m = line.wholeMatch(of: /##\s+Epic\s+(?:[A-Za-z]+\d*-)?(\d+)\s*[:—–-]\s*(.+)/) {
                 flush()
                 epicTitles[String(m.1)] = String(m.2).trimmingCharacters(in: .whitespaces)
