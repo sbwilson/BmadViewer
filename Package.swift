@@ -11,12 +11,13 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/jpsim/Yams.git", from: "6.0.0"),
         .package(url: "https://github.com/swiftlang/swift-markdown.git", from: "0.5.0"),
+        .package(url: "https://github.com/dduan/TOMLDecoder.git", from: "0.4.0"),
     ],
     targets: [
         // Pure model + loaders: no AppKit, so it is testable headless.
         .target(
             name: "BmadKit",
-            dependencies: ["Yams"]
+            dependencies: ["Yams", "TOMLDecoder"]
         ),
         // The app: SwiftUI shell, AppKit document view, file actions.
         .executableTarget(

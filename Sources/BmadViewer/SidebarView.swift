@@ -10,8 +10,10 @@ struct SidebarView: View {
         List(selection: $store.sidebar) {
             Section {
                 if !project.queue.isEmpty {
-                    row("Build order", systemImage: "list.number",
-                        count: project.queue.first?.entries.count ?? 0)
+                    row(project.layout == .ticketTree ? "Next" : "Build order", systemImage: "list.number",
+                        count: project.layout == .ticketTree
+                            ? project.queue.filter { $0.heading != "Blocked" }.reduce(0) { $0 + $1.entries.count }
+                            : project.queue.first?.entries.count ?? 0)
                         .tag(SidebarItem.queue)
                 }
                 row("Active", systemImage: "bolt", count: project.allStories.filter(\.status.isActive).count)
@@ -26,7 +28,7 @@ struct SidebarView: View {
                 }
             }
 
-            let docs = [project.sources.buildOrderFile, project.sources.epicsFile, project.sources.statusFile].compactMap { $0 }
+            let docs = project.documents
             if !docs.isEmpty {
                 Section("Documents") {
                     ForEach(docs, id: \.self) { url in
@@ -72,7 +74,7 @@ struct EpicRow: View {
             ProgressRing(fraction: total == 0 ? 0 : Double(finished) / Double(total), status: epic.status)
             VStack(alignment: .leading, spacing: 1) {
                 Text(epic.title).lineLimit(2)
-                Text("Epic \(epic.id) · \(finished)/\(total) · \(epic.status.raw)")
+                Text("\(epic.number.map { "Epic \($0) · " } ?? "")\(finished)/\(total)\(epic.builtCount > 0 ? " · \(epic.builtCount) built" : "") · \(epic.status.raw)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

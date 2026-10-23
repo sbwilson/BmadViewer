@@ -12,6 +12,10 @@ public enum ConfigResolver {
         public var planning: URL?
         public var implementation: URL?
         public var output: URL?
+        /// `modules.bmm.active_initiative`: the v7 initiative folder's name.
+        public var activeInitiative: String?
+        /// `[tickets] root` from `_bmad/custom/ticketing-store-config.toml`, unexpanded.
+        public var ticketsRoot: String?
     }
 
     public static func resolve(root: URL) -> Paths {
@@ -47,8 +51,12 @@ public enum ConfigResolver {
         var paths = Paths(
             planning: url("planning_artifacts"),
             implementation: url("implementation_artifacts"),
-            output: url("output_folder")
+            output: url("output_folder"),
+            activeInitiative: values["active_initiative"]
         )
+        if let text = try? String(contentsOf: root.appending(path: "_bmad/custom/ticketing-store-config.toml"), encoding: .utf8) {
+            paths.ticketsRoot = tomlAssignments(text).first { $0.0 == "root" }?.1
+        }
         let fallback = root.appending(path: "_bmad-output")
         if paths.output == nil, fm.fileExists(atPath: fallback.path(percentEncoded: false)) {
             paths.output = fallback

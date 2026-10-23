@@ -39,13 +39,14 @@ private let fixture = Bundle.module.url(forResource: "Fixtures/qubric-shaped", w
 
     @Test func truncatedKeysStillFindTheirStoryFile() throws {
         let s = try #require(project.story(number: "1.2"))
-        #expect(s.documentURL?.lastPathComponent == "spec-1-2-a-key-truncated-at-sixty-characters-like-the-diagnostics-split.md")
+        #expect(s.primaryFile?.lastPathComponent == "spec-1-2-a-key-truncated-at-sixty-characters-like-the-diagnostics-split.md")
+        #expect(s.documents.map(\.label) == ["Story file", "Epic definition"])
         #expect(s.frontMatter["status"] == "review")
-        #expect(try #require(project.story(number: "9.16")).documentURL == nil)
+        #expect(try #require(project.story(number: "9.16")).primaryFile?.lastPathComponent == "epics.md")
     }
 
     @Test func epicsExcerptRunsToTheNextHeadingOfLevelThreeOrAbove() throws {
-        let excerpt = try #require(project.story(number: "9.16")?.epicsExcerpt)
+        let excerpt = try #require(project.story(number: "9.16")?.documents.first { $0.label == "Epic definition" }?.markdown)
         #expect(excerpt.hasPrefix("### Story 9.16"))
         #expect(excerpt.contains("Still 9.16."))
         #expect(!excerpt.contains("Final notes"))
@@ -61,6 +62,15 @@ private let fixture = Bundle.module.url(forResource: "Fixtures/qubric-shaped", w
         #expect(Status("superseded").isTerminal)
         #expect(!Status("optional").isTerminal)
         #expect(Status("whatever").kind == .other)
+        #expect(Status("draft").kind == .backlog)
+        #expect(Status("in-review").kind == .review)
+        #expect(Status("blocked").isActive)
+        #expect(Status("dropped").isTerminal)
+        #expect(!Status("built").isTerminal)
+    }
+
+    @Test func queuedStoriesCarryWhatTheyWaitOn() throws {
+        #expect(try #require(project.story(number: "9.17")).waitsOn == ["9.16", "9.15"])
     }
 
     @Test func unrecognisedKeysAndUnknownQueuedStoriesAreWarnings() {

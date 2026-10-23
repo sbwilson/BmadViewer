@@ -81,8 +81,7 @@ final class ProjectStore {
     }
 
     private func watch(_ p: Project) {
-        var dirs = [p.sources.statusFile?.deletingLastPathComponent(), p.sources.planningDirectory, p.sources.storyDirectory]
-            .compactMap { $0 }
+        var dirs = p.sources.watched
         dirs.append(p.root.appending(path: "_bmad"))
         let unique = Array(Set(dirs.map(\.standardizedFileURL)))
         watcher = FileWatcher(directories: unique) { [weak self] in

@@ -6,64 +6,59 @@ struct StoryDetailView: View {
     let story: Story
     let project: Project
 
-    enum Source: String, CaseIterable, Identifiable {
-        case storyFile = "Story file"
-        case epics = "Epic definition"
-        var id: Self { self }
-    }
-
-    @State private var source: Source = .storyFile
+    @State private var selectedLabel: String?
 
     var body: some View {
-        let effective = effectiveSource
+        let document = currentDocument
         VStack(alignment: .leading, spacing: 0) {
             header
             Divider()
-            switch effective {
-            case .storyFile:
-                if let url = story.documentURL {
-                    MarkdownFileView(url: url, project: project, version: store.lastLoaded)
-                }
-            case .epics:
-                if let excerpt = story.epicsExcerpt {
+            if let document {
+                if let markdown = document.markdown {
                     MarkdownTextView(
-                        key: "epics:\(story.id):\(store.lastLoaded?.timeIntervalSince1970 ?? 0)",
-                        markdown: excerpt,
-                        baseURL: project.sources.epicsFile?.deletingLastPathComponent() ?? project.root,
+                        key: "\(story.id):\(document.label):\(store.lastLoaded?.timeIntervalSince1970 ?? 0)",
+                        markdown: markdown,
+                        baseURL: document.url?.deletingLastPathComponent() ?? project.root,
                         project: project
                     )
-                } else {
-                    ContentUnavailableView("No document", systemImage: "doc",
-                                           description: Text("This story has no story file and no section in epics.md."))
+                } else if let url = document.url {
+                    MarkdownFileView(url: url, project: project, version: store.lastLoaded)
                 }
+            } else {
+                ContentUnavailableView("No document", systemImage: "doc",
+                                       description: Text("This story has no file and no planning entry."))
             }
         }
         .navigationTitle("Story \(story.number)")
     }
 
-    private var effectiveSource: Source {
-        if story.documentURL == nil { return .epics }
-        if story.epicsExcerpt == nil { return .storyFile }
-        return source
+    private var currentDocument: StoryDocument? {
+        story.documents.first { $0.label == selectedLabel } ?? story.documents.first
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Story \(story.number)")
+                Text("\(story.type?.capitalized ?? "Story") \(story.number)")
                     .font(.headline.monospacedDigit())
                     .foregroundStyle(.secondary)
                 StatusBadge(status: story.status)
-                if let fmStatus = story.frontMatter["status"], fmStatus != story.status.raw {
+                if let fmStatus = story.frontMatter["status"], fmStatus != story.status.raw, project.layout == .sprintStatus {
                     Text("file says \(fmStatus)")
                         .font(.caption)
                         .foregroundStyle(.orange)
                         .help("The story file's front matter disagrees with sprint-status.yaml")
                 }
+                if let risk = story.risk, !risk.isEmpty {
+                    Text("risk \(risk)").font(.caption).foregroundStyle(risk == "high" ? .orange : .secondary)
+                }
                 Spacer()
-                if story.documentURL != nil, story.epicsExcerpt != nil {
-                    Picker("Source", selection: $source) {
-                        ForEach(Source.allCases) { Text($0.rawValue).tag($0) }
+                if story.documents.count > 1 {
+                    Picker("Source", selection: Binding(
+                        get: { currentDocument?.label ?? "" },
+                        set: { selectedLabel = $0 }
+                    )) {
+                        ForEach(story.documents, id: \.label) { Text($0.label).tag($0.label) }
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
@@ -78,7 +73,7 @@ struct StoryDetailView: View {
 
             if let entry = store.queueEntry(for: story) {
                 Label {
-                    Text("#\(entry.position) in \(entry.section)")
+                    Text(project.layout == .ticketTree ? entry.section : "#\(entry.position) in \(entry.section)")
                         + Text(entry.waitsOn.isEmpty ? "" : " · waits on \(entry.waitsOn.joined(separator: ", "))")
                 } icon: {
                     Image(systemName: "list.number")
@@ -86,23 +81,27 @@ struct StoryDetailView: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+            } else if !story.waitsOn.isEmpty, !story.status.isTerminal {
+                Label("Waits on \(story.waitsOn.joined(separator: ", "))", systemImage: "hourglass")
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+                    .lineLimit(1)
             }
 
             HStack(spacing: 14) {
-                if let url = story.documentURL {
-                    FileLink(url: url, showInViewer: store.showDocument)
-                } else {
-                    Text("No story file").font(.callout).foregroundStyle(.tertiary)
+                let files = Array(Set(story.files)).sorted { $0.lastPathComponent < $1.lastPathComponent }
+                if files.isEmpty {
+                    Text("No files").font(.callout).foregroundStyle(.tertiary)
                 }
-                if let epics = project.sources.epicsFile {
-                    FileLink(url: epics, showInViewer: store.showDocument)
+                ForEach(files, id: \.self) { url in
+                    FileLink(url: url, showInViewer: store.showDocument)
                 }
                 Spacer(minLength: 0)
             }
             .font(.callout)
 
-            let meta = ["type", "created", "baseline_commit"].compactMap { key in
-                story.frontMatter[key].map { "\(key.replacingOccurrences(of: "_", with: " ")): \(key == "baseline_commit" ? String($0.prefix(8)) : $0)" }
+            let meta = ["type", "created", "baseline_commit", "baseline_revision", "route"].compactMap { key in
+                story.frontMatter[key].map { "\(key.replacingOccurrences(of: "_", with: " ")): \(key.hasPrefix("baseline") ? String($0.prefix(8)) : $0)" }
             }
             if !meta.isEmpty {
                 Text(meta.joined(separator: "   "))
@@ -114,6 +113,7 @@ struct StoryDetailView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
+        .onChange(of: story.id) { selectedLabel = nil }
     }
 }
 

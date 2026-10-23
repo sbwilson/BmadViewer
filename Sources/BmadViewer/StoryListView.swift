@@ -4,6 +4,7 @@ import SwiftUI
 extension Status {
     var color: Color {
         switch kind {
+        case .blocked: .red
         case .inProgress: .blue
         case .review: .purple
         case .ready: .teal
@@ -43,17 +44,26 @@ struct StoryRow: View {
                 Text(story.title).lineLimit(2)
                 HStack(spacing: 6) {
                     StatusBadge(status: story.status)
-                    if story.documentURL == nil {
-                        Text(story.epicsExcerpt == nil ? "no document" : "epics.md only")
+                    if let type = story.type, type != "story" {
+                        Text(type).font(.caption.weight(.medium)).foregroundStyle(type == "bug" ? .red : .orange)
+                    }
+                    if story.primaryFile == nil || story.documents.allSatisfy({ $0.markdown != nil }) {
+                        Text(story.documents.isEmpty ? "no document" : "planned only")
                             .font(.caption)
                             .foregroundStyle(.tertiary)
+                    }
+                    if !story.waitsOn.isEmpty, !story.status.isTerminal {
+                        Text("waits on \(story.waitsOn.joined(separator: ", "))")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .lineLimit(1)
                     }
                 }
             }
         }
         .padding(.vertical, 2)
         .contextMenu {
-            if let url = story.documentURL { FileContextMenu(url: url) }
+            if let url = story.primaryFile { FileContextMenu(url: url) }
         }
     }
 }
@@ -66,6 +76,16 @@ struct StoryListView: View {
         @Bindable var store = store
         let stories = store.visibleStories
         List(selection: $store.selectedStoryID) {
+            if case .epic(let id) = store.sidebar, let epic = project.epics.first(where: { $0.id == id }), !epic.documents.isEmpty {
+                Section {
+                    HStack(spacing: 12) {
+                        ForEach(epic.documents, id: \.self) { url in
+                            FileLink(url: url, label: docLabel(url, epic: epic), showInViewer: store.showDocument)
+                        }
+                    }
+                    .font(.callout)
+                }
+            }
             if case .epic = store.sidebar {
                 ForEach(stories) { StoryRow(story: $0).tag($0.id) }
             } else {
@@ -86,9 +106,16 @@ struct StoryListView: View {
         .navigationTitle(title)
     }
 
+    private func docLabel(_ url: URL, epic: Epic) -> String {
+        let name = url.deletingPathExtension().lastPathComponent
+        if name == epic.id { return "Epic" }
+        if name.hasSuffix("-retrospective") { return "Retrospective" }
+        return url.lastPathComponent
+    }
+
     private var title: String {
         switch store.sidebar {
-        case .epic(let id): project.epics.first { $0.id == id }.map { "Epic \($0.id)" } ?? "Epic"
+        case .epic(let id): project.epics.first { $0.id == id }?.title ?? "Epic"
         case .active: "Active"
         default: "All stories"
         }
@@ -118,7 +145,7 @@ struct QueueView: View {
                 }
             }
         }
-        .navigationTitle("Build order")
+        .navigationTitle(project.layout == .ticketTree ? "Next" : "Build order")
         .toolbar {
             if let url = project.sources.buildOrderFile {
                 ToolbarItem {

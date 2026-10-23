@@ -1,0 +1,31 @@
+[[entry]]
+id = 1
+type = "story"
+title = "Web stack"
+description = "Router and shell."
+verify = "Routes round-trip."
+after = ["2.2"]
+
+[[entry]]
+id = 2
+type = "story"
+title = "Transaction list"
+description = "The list."
+verify = "Paging works."
+after = [1, "2.1"]
+
+[[entry]]
+id = 3
+type = "spike"
+title = "Search engine choice"
+description = "Pick FTS5 or not."
+verify = "A written decision."
+refine = true
+
+[[entry]]
+id = 4
+type = "story"
+title = "Sweep"
+description = "Cleanup."
+verify = "Green."
+after = [2, 3]

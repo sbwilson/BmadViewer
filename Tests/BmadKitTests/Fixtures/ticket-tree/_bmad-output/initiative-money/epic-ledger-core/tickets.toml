@@ -1,0 +1,19 @@
+[[entry]]
+id = 1
+type = "story"
+title = "Ledger schema"
+description = "Tables for accounts and transactions."
+verify = "Migrations run."
+covers = ["CAP-3"]
+hitl = false
+risk = "low"
+
+[[entry]]
+id = 2
+type = "story"
+title = "Accounts module"
+description = """A multi-line
+description."""
+verify = "Tests pass."
+after = [1]
+risk = "medium"

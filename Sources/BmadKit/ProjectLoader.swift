@@ -18,14 +18,13 @@ public enum ProjectLoader {
         let paths = ConfigResolver.resolve(root: root)
         var warnings: [String] = []
 
+        // A configured active initiative means a v7 ticket tree, even beside older v6 artifacts.
+        if paths.activeInitiative != nil, let initiative = TicketTree.findInitiative(root: root, paths: paths) {
+            return try TicketTree.load(root: root, initiative: initiative, paths: paths)
+        }
         guard let statusFile = findStatusFile(root: root, paths: paths) else {
-            if let tree = findTicketTree(root: root, paths: paths) {
-                return Project(
-                    root: root, name: root.lastPathComponent, layout: .ticketTree,
-                    epics: [], queue: [],
-                    sources: .init(planningDirectory: tree),
-                    warnings: ["The v7 ticket tree was found but is not read yet."]
-                )
+            if let initiative = TicketTree.findInitiative(root: root, paths: paths) {
+                return try TicketTree.load(root: root, initiative: initiative, paths: paths)
             }
             throw Failure.notABmadProject(root)
         }
@@ -71,19 +70,32 @@ public enum ProjectLoader {
                 var story = Story(
                     id: key, number: number, epicID: e,
                     title: epicsDoc?.storyTitles[number] ?? humanise(slug),
-                    status: Status(value),
-                    documentURL: index.file(epic: e, story: s, slug: slug),
-                    epicsExcerpt: epicsDoc?.storySections[number]
+                    status: Status(value)
                 )
-                if let doc = story.documentURL, let text = try? String(contentsOf: doc, encoding: .utf8) {
-                    story.frontMatter = FrontMatter.split(text).fields
-                    if epicsDoc?.storyTitles[number] == nil, let t = story.frontMatter["title"] {
-                        story.title = stripStoryPrefix(t)
+                if let doc = index.file(epic: e, story: s, slug: slug) {
+                    story.documents.append(StoryDocument(label: "Story file", url: doc))
+                    if let text = try? String(contentsOf: doc, encoding: .utf8) {
+                        story.frontMatter = FrontMatter.split(text).fields
+                        if epicsDoc?.storyTitles[number] == nil, let t = story.frontMatter["title"] {
+                            story.title = stripStoryPrefix(t)
+                        }
                     }
+                }
+                if let excerpt = epicsDoc?.storySections[number] {
+                    story.documents.append(StoryDocument(label: "Epic definition", markdown: excerpt, url: epicsURL))
                 }
                 epics[epicSlot(e)].stories.append(story)
             case .unrecognised:
                 warnings.append("Unrecognised key in development_status: \(key)")
+            }
+        }
+
+        let queuedNumbers = queue.flatMap(\.entries)
+        for i in epics.indices {
+            for j in epics[i].stories.indices {
+                if let entry = queuedNumbers.first(where: { $0.storyNumber == epics[i].stories[j].number }) {
+                    epics[i].stories[j].waitsOn = entry.waitsOn
+                }
             }
         }
 
@@ -94,7 +106,7 @@ public enum ProjectLoader {
             }
         }
 
-        return Project(
+        var project = Project(
             root: root,
             name: status.project ?? root.lastPathComponent,
             layout: .sprintStatus,
@@ -106,6 +118,8 @@ public enum ProjectLoader {
             ),
             warnings: warnings
         )
+        project.documents = [buildOrderURL, epicsURL, statusFile].compactMap { $0 }
+        return project
     }
 
     static func findStatusFile(root: URL, paths: ConfigResolver.Paths) -> URL? {
@@ -113,12 +127,6 @@ public enum ProjectLoader {
             if let u = existing(dir.appending(path: "sprint-status.yaml")) { return u }
         }
         return shallowSearch(root: root, name: "sprint-status.yaml", maxDepth: 4)
-    }
-
-    static func findTicketTree(root: URL, paths: ConfigResolver.Paths) -> URL? {
-        let base = paths.output ?? root
-        return shallowSearch(root: base, name: "tickets.toml", maxDepth: 4)?
-            .deletingLastPathComponent()
     }
 
     /// Breadth-first, skipping archives, build output and worktrees, so the live

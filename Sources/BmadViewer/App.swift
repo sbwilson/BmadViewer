@@ -1,4 +1,5 @@
 import AppKit
+import BmadKit
 import SwiftUI
 
 @main
@@ -55,6 +56,29 @@ struct BmadViewerApp: App {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// `BmadViewer --dump <project>` prints what the loader read and exits: a check
+    /// against `tickets.py next` or the sprint file without opening a window.
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        let args = CommandLine.arguments
+        guard let i = args.firstIndex(of: "--dump") else { return }
+        let path = args.count > i + 1 ? args[i + 1] : FileManager.default.currentDirectoryPath
+        do {
+            let p = try ProjectLoader.load(root: URL(filePath: NSString(string: path).expandingTildeInPath))
+            print("\(p.name) · \(p.layout.rawValue) · \(p.epics.count) epics · \(p.allStories.count) stories")
+            for e in p.epics {
+                print("  \(e.id): \(e.title) [\(e.status.raw)] \(e.progress.finished)/\(e.progress.total), \(e.builtCount) built")
+            }
+            for s in p.queue {
+                print("\(s.heading): \(s.entries.map(\.storyNumber).joined(separator: " "))")
+            }
+            for w in p.warnings { print("warning: \(w)") }
+            exit(0)
+        } catch {
+            print("error: \(error.localizedDescription)")
+            exit(1)
+        }
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // When run unbundled (`swift run`) the process starts as a background app.
         NSApp.setActivationPolicy(.regular)

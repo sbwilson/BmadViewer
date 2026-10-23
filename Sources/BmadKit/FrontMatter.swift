@@ -9,17 +9,7 @@ public enum FrontMatter {
     }
 
     public static func split(_ text: String) -> Split {
-        guard text.hasPrefix("---\n") || text.hasPrefix("---\r\n") else {
-            return Split(fields: [:], body: text)
-        }
-        let lines = text.components(separatedBy: "\n")
-        guard let close = lines.dropFirst().firstIndex(where: {
-            $0.trimmingCharacters(in: .whitespacesAndNewlines) == "---"
-        }) else {
-            return Split(fields: [:], body: text)
-        }
-        let yaml = lines[1..<close].joined(separator: "\n")
-        let body = lines[(close + 1)...].joined(separator: "\n")
+        guard let (yaml, body) = sections(text) else { return Split(fields: [:], body: text) }
         var fields: [String: String] = [:]
         if let mapping = (try? Yams.load(yaml: yaml)) as? [String: Any] {
             for (key, value) in mapping {
@@ -27,6 +17,22 @@ public enum FrontMatter {
             }
         }
         return Split(fields: fields, body: body)
+    }
+
+    /// The front matter with YAML types kept (`id: 3` is an Int, `after: [1, "2.8"]` an array);
+    /// nil when there is none or it does not parse.
+    public static func raw(_ text: String) -> [String: Any]? {
+        guard let (yaml, _) = sections(text) else { return nil }
+        return (try? Yams.load(yaml: yaml)) as? [String: Any]
+    }
+
+    private static func sections(_ text: String) -> (yaml: String, body: String)? {
+        guard text.hasPrefix("---\n") || text.hasPrefix("---\r\n") else { return nil }
+        let lines = text.components(separatedBy: "\n")
+        guard let close = lines.dropFirst().firstIndex(where: {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines) == "---"
+        }) else { return nil }
+        return (lines[1..<close].joined(separator: "\n"), lines[(close + 1)...].joined(separator: "\n"))
     }
 
     private static func stringify(_ value: Any) -> String {

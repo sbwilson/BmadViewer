@@ -27,6 +27,24 @@ With no argument it reopens the most recent project; **File › Open Project…*
 
 Archived copies (`archive/`, worktrees, build output) are skipped when searching for the status file.
 
+## What it reads (BMAD v7 ticket tree)
+
+Used when `modules.bmm.active_initiative` is set (e.g. `_bmad/custom/config.user.toml`), or when there is no `sprint-status.yaml` but an `initiative-*` folder exists. The rules follow the project's own `_bmad/method/scripts/tickets.py`.
+
+| Source | Used for |
+| --- | --- |
+| `<store root>/<initiative>/tickets.toml` `[[epic]]` | epic order, ids (story numbers are `<epic id>.<entry id>`) and titles |
+| `<initiative>/epic-<slug>/tickets.toml` `[[entry]]` | tickets in build order: type, title, description, verify, `after`, risk, refine |
+| `story-*.md` / `spike-*.md` / `bug-*.md` | a pulled ticket; joins its entry by `id`, its `title` and `after` win |
+| `*-plan.md` with `ticket:` | the ticket's `status` (draft … built, done, blocked, dropped) and its build record |
+| `<store root>/backlog/` | tickets in no epic |
+
+The store root is `[tickets] root` in `_bmad/custom/ticketing-store-config.toml` (default: the output folder). **Next** groups tickets the way `tickets.py next` does: in progress, built (awaiting done), ready to start, ready to refine, blocked. A built ticket meets an `after`; an epic gate waits for the epic to be done.
+
+A ticket shows three views: **Ticket** (its `tickets.toml` entry as text), **Story file**, and **Plan**.
+
+`BmadViewer --dump <project>` prints what was read and exits, for comparing with `tickets.py next`.
+
 ## Documents
 
 - Click a link or a file path in inline code (`scripts/x.py`) → opens in the default app.
@@ -36,5 +54,5 @@ Archived copies (`archive/`, worktrees, build output) are skipped when searching
 
 ## Not yet
 
-- **BMAD v7 ticket tree** (`tickets/tickets.toml`, status in `story-*-plan.md` front matter): detected, not read yet. `ProjectLoader` is the seam.
+- Tracker-backed ticket stores (`store` other than `repo`): `tracker_status` is read from leaf files, but nothing is synced.
 - Retrospective action items from `sprint-status.yaml`.

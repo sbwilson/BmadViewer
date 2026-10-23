@@ -1,0 +1,22 @@
+# tickets.toml — the initiative's epics. Table order is build order; `id` is permanent and not an order.
+
+[[epic]]
+id = 2
+slug = "epic-ledger-core"
+title = "Ledger core and privacy"
+covers = ["CAP-3"]
+
+[[epic]]
+id = 12
+slug = "epic-workspace"
+title = "Ledger workspace"
+after = [{ epic = 2, needs = "the ledger modules" }]
+
+[[epic]]
+id = 6
+slug = "epic-budgets"
+title = "Budgets and recurring bills"
+after = [
+  { epic = 12, needs = "the shell" },
+  { epic = "epic-ledger-core", needs = "a slug works too" },
+]
