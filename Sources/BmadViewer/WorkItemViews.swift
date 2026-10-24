@@ -125,7 +125,7 @@ struct WorkItemDetailView: View {
     let project: Project
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        TabbedDocumentsView(context: "work:\(item.kind.rawValue):\(item.id)", fixed: DocTab.workItemTabs(item), project: project) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(item.kind == .deferred ? item.label : "\(item.kind.rawValue) \(item.label)")
@@ -159,24 +159,18 @@ struct WorkItemDetailView: View {
                 HStack(spacing: 14) {
                     if let source = item.source {
                         FileLink(url: source, label: source.lastPathComponent + (item.line.map { ":\($0)" } ?? ""),
-                                 showInViewer: store.showDocument)
+                                 lines: item.line.map { line in LineRange(line, line + max(0, item.fields.count)) })
                     }
                     ForEach(item.related, id: \.self) { url in
-                        FileLink(url: url, showInViewer: store.showDocument)
+                        FileLink(url: url)
                     }
                     Spacer(minLength: 0)
                 }
                 .font(.callout)
             }
             .padding(.horizontal, 20)
-            .padding(.vertical, 14)
-            Divider()
-            MarkdownTextView(
-                key: "\(item.kind.rawValue):\(item.id):\(store.lastLoaded?.timeIntervalSince1970 ?? 0)",
-                markdown: item.markdown,
-                baseURL: item.source?.deletingLastPathComponent() ?? project.root,
-                project: project
-            )
+            .padding(.top, 14)
+            .padding(.bottom, 10)
         }
         .navigationTitle(item.label)
     }

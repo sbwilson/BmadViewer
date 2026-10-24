@@ -75,6 +75,9 @@ struct ProjectView: View {
                 }
             } else if let story = store.selectedStory {
                 StoryDetailView(story: story, project: project)
+            } else if case .epic(let id) = store.sidebar, store.epicDocsShown == id,
+                      let epic = project.epics.first(where: { $0.id == id }) {
+                EpicDocumentsView(epic: epic, project: project)
             } else {
                 ContentUnavailableView("No story selected", systemImage: "doc.text",
                                        description: Text("Choose a story to read its document."))

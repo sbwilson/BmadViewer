@@ -1,4 +1,5 @@
 import AppKit
+import BmadKit
 import Markdown
 
 /// Markdown → `NSAttributedString` for a TextKit 1 `NSTextView`, so links are
@@ -228,7 +229,10 @@ struct MarkdownRenderer {
             var a: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color]
             if code { a[.backgroundColor] = NSColor.quaternarySystemFill }
             if strike { a[.strikethroughStyle] = NSUnderlineStyle.single.rawValue }
-            if let link { a[.link] = link; a[.toolTip] = link.isFileURL ? link.path(percentEncoded: false) : link.absoluteString }
+            if let link {
+                a[.link] = link
+                a[.toolTip] = link.isFileURL ? link.path(percentEncoded: false) + (link.lineRange.map { " (\($0.label))" } ?? "") : link.absoluteString
+            }
             return a
         }
     }
@@ -316,19 +320,19 @@ struct MarkdownRenderer {
     }
 
     private func resolvePath(_ raw: String) -> URL? {
-        var path = raw.removingPercentEncoding ?? raw
+        let (written, lines) = LineRef.split(raw.removingPercentEncoding ?? raw)
+        var path = written
         if let hash = path.firstIndex(of: "#") { path = String(path[..<hash]) }
-        path = path.replacing(/:\d+(?::\d+)?(?:-\d+)?$/, with: "")
         path = path.replacingOccurrences(of: "{project-root}", with: projectRoot.path(percentEncoded: false))
         if path.hasPrefix("~/") { path = NSString(string: path).expandingTildeInPath }
         guard !path.isEmpty else { return nil }
         if path.hasPrefix("/") {
             let u = URL(filePath: path)
-            return exists(u) ? u : nil
+            return exists(u) ? u.withLines(lines) : nil
         }
         for base in [baseURL, projectRoot] {
             let u = base.appending(path: path).standardizedFileURL
-            if exists(u) { return u }
+            if exists(u) { return u.withLines(lines) }
         }
         return nil
     }

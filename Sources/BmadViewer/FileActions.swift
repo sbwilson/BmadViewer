@@ -1,4 +1,5 @@
 import AppKit
+import BmadKit
 import SwiftUI
 
 /// Opening files the way Finder does: the default app on click, any capable
@@ -78,23 +79,26 @@ enum FileActions {
         return menu
     }
 
-    /// Items for a link's context menu. `showInViewer` is offered for markdown.
-    static func linkMenuItems(for url: URL, showInViewer: ((URL) -> Void)?) -> [NSMenuItem] {
+    /// Items for a link's context menu; "Open in Tab" first when the view has tabs.
+    static func linkMenuItems(for url: URL, openInTab: (() -> Void)?) -> [NSMenuItem] {
         var items: [NSMenuItem] = []
-        items.append(ClosureMenuItem(url.isFileURL ? "Open" : "Open in Browser") { open(url) })
+        if url.isFileURL, let openInTab { items.append(ClosureMenuItem("Open in Tab", handler: openInTab)) }
+        items.append(ClosureMenuItem(url.isFileURL ? openTitle(url) : "Open in Browser") { open(url) })
         let openWith = NSMenuItem(title: "Open With", action: nil, keyEquivalent: "")
         openWith.submenu = openWithMenu(for: url)
         items.append(openWith)
         if url.isFileURL {
-            if url.pathExtension.lowercased() == "md", let showInViewer {
-                items.append(ClosureMenuItem("Show in BMAD Viewer") { showInViewer(url) })
-            }
             items.append(ClosureMenuItem("Reveal in Finder") { reveal(url) })
             items.append(ClosureMenuItem("Copy Path") { copyPath(url) })
         } else {
             items.append(ClosureMenuItem("Copy Link") { copyPath(url) })
         }
         return items
+    }
+
+    /// "Open in TextMate", naming the default app, or plain "Open".
+    static func openTitle(_ url: URL) -> String {
+        defaultApplication(for: url).map { "Open in \(displayName($0))" } ?? "Open"
     }
 }
 
@@ -118,10 +122,11 @@ final class ClosureMenuItem: NSMenuItem {
 /// The same actions as the document view's link menu, for SwiftUI `.contextMenu`.
 struct FileContextMenu: View {
     let url: URL
-    var showInViewer: ((URL) -> Void)?
+    var openInTab: (() -> Void)?
 
     var body: some View {
-        Button("Open") { FileActions.open(url) }
+        if let openInTab { Button("Open in Tab", action: openInTab) }
+        Button(FileActions.openTitle(url)) { FileActions.open(url) }
         Menu("Open With") {
             let apps = FileActions.applications(for: url)
             let def = FileActions.defaultApplication(for: url)
@@ -140,31 +145,30 @@ struct FileContextMenu: View {
             Divider()
             Button("Other…") { FileActions.chooseApplication(for: url) }
         }
-        if url.pathExtension.lowercased() == "md", let showInViewer {
-            Button("Show in BMAD Viewer") { showInViewer(url) }
-        }
         Divider()
         Button("Reveal in Finder") { FileActions.reveal(url) }
         Button("Copy Path") { FileActions.copyPath(url) }
     }
 }
 
-/// A file name that opens in its default app on click and offers Open With on right-click.
+/// A file name. Inside a tabbed view a click opens it in a tab; elsewhere in its
+/// default app. Right-click offers both, Open With, Reveal and Copy Path.
 struct FileLink: View {
+    @Environment(\.openDocument) private var openDocument
     let url: URL
     var label: String?
-    var showInViewer: ((URL) -> Void)?
+    var lines: LineRange?
 
     var body: some View {
         Button {
-            FileActions.open(url)
+            if let openDocument { openDocument(url, lines) } else { FileActions.open(url) }
         } label: {
-            Label(label ?? url.lastPathComponent, systemImage: "doc.text")
+            Label(label ?? url.lastPathComponent, systemImage: FileKind.of(url).icon)
                 .lineLimit(1)
                 .truncationMode(.middle)
         }
         .buttonStyle(.link)
         .help(url.path(percentEncoded: false))
-        .contextMenu { FileContextMenu(url: url, showInViewer: showInViewer) }
+        .contextMenu { FileContextMenu(url: url, openInTab: openDocument.map { open in { open(url, lines) } }) }
     }
 }

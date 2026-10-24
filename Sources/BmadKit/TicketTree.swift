@@ -456,3 +456,57 @@ public enum TicketTree {
         return FileManager.default.fileExists(atPath: url.path(percentEncoded: false), isDirectory: &dir) && dir.boolValue
     }
 }
+
+/// A `tickets.toml` as written, for showing the file itself: an epic's `[[entry]]`
+/// tables or an initiative's `[[epic]]` tables, in build order.
+public struct TicketsFile: Sendable {
+    public struct Entry: Sendable, Identifiable, Hashable {
+        public let id: Int
+        public let type: String
+        public let title: String
+        public let description: String?
+        public let verify: String?
+        public let unknown: String?
+        /// As written: a bare sibling id (`"3"`), `"<epic id>.<entry id>"`, `"epic-<slug>"` or a file name.
+        public let after: [String]
+        public let risk: String?
+        public let hitl: Bool
+        public let refine: Bool
+        public let covers: [String]
+    }
+
+    public struct EpicRow: Sendable, Identifiable, Hashable {
+        public struct Need: Sendable, Hashable {
+            public let epic: String
+            public let needs: String?
+        }
+        public let id: Int
+        public let slug: String
+        public let title: String?
+        public let after: [Need]
+    }
+
+    public let entries: [Entry]
+    public let epics: [EpicRow]
+
+    public static func load(_ url: URL) throws -> TicketsFile {
+        let text = try String(contentsOf: url, encoding: .utf8)
+        let b: TicketTree.Breakdown
+        do {
+            b = try TOMLDecoder().decode(TicketTree.Breakdown.self, from: text)
+        } catch {
+            throw TicketTree.Failure.malformed("\(url.lastPathComponent): \(error)")
+        }
+        return TicketsFile(
+            entries: (b.entry ?? []).map {
+                Entry(id: $0.id, type: $0.type ?? "story", title: $0.title ?? "Entry \($0.id)", description: $0.description,
+                      verify: $0.verify, unknown: $0.unknown, after: ($0.after ?? []).map(\.description), risk: $0.risk,
+                      hitl: $0.hitl ?? false, refine: $0.refine ?? false, covers: $0.covers ?? [])
+            },
+            epics: (b.epic ?? []).map {
+                EpicRow(id: $0.id, slug: $0.slug, title: $0.title,
+                        after: ($0.after ?? []).map { .init(epic: $0.epic.description, needs: $0.needs) })
+            }
+        )
+    }
+}

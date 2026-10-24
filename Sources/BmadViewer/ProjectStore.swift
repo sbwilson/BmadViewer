@@ -29,8 +29,16 @@ final class ProjectStore {
     private(set) var lastLoaded: Date?
 
     var sidebar: SidebarItem? = .queue
-    var selectedStoryID: Story.ID?
+    var selectedStoryID: Story.ID? {
+        didSet { if selectedStoryID != nil { epicDocsShown = nil } }
+    }
     var selectedWorkItemID: WorkItem.ID?
+    /// The epic whose own documents fill the detail view, until a story is chosen.
+    var epicDocsShown: String?
+    /// Open file tabs per story, ticket, epic or work item, saved per project.
+    var tabSessions: [String: TabSession] = [:] {
+        didSet { if tabSessions != oldValue { saveTabs() } }
+    }
     var search = ""
     var hideFinished = false
 
@@ -84,11 +92,34 @@ final class ProjectStore {
                 lastLoaded = Date()
                 if selectedStoryID.map({ p.story(id: $0) == nil }) == true { selectedStoryID = nil }
                 if rewatch || watcher == nil { watch(p) }
+                if rewatch { loadTabs(p.root) }
             case .failure(let e):
                 error = e.localizedDescription
                 if project?.root != root { project = nil }
             }
         }
+    }
+
+    private func tabsKey(_ root: URL) -> String { "openTabs:\(root.path(percentEncoded: false))" }
+
+    private func loadTabs(_ root: URL) {
+        guard let data = UserDefaults.standard.data(forKey: tabsKey(root)),
+              let saved = try? JSONDecoder().decode([String: TabSession].self, from: data) else {
+            tabSessions = [:]
+            return
+        }
+        // Drop files that have gone since.
+        tabSessions = saved.mapValues { s in
+            var s = s
+            s.opened = s.opened.filter { FileManager.default.fileExists(atPath: $0.path) }
+            return s
+        }
+    }
+
+    private func saveTabs() {
+        guard let root = project?.root else { return }
+        let worth = tabSessions.filter { !$0.value.opened.isEmpty || $0.value.selected != nil }
+        if let data = try? JSONEncoder().encode(worth) { UserDefaults.standard.set(data, forKey: tabsKey(root)) }
     }
 
     private func watch(_ p: Project) {

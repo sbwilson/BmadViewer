@@ -57,12 +57,17 @@ The sidebar's **Review** section lists what is owed that is not a story, with op
 
 Retro actions group by epic, newest retrospective first; deferred work by status, newest first. Search matches every field, and **Hide finished** applies. Each item links to the line it is written on; paths in `location:` link to the files.
 
-## Documents
+## Documents and tabs
 
-- Click a link or a file path in inline code (`scripts/x.py`) → opens in the default app.
-- Right-click a link → Open, **Open With ›** (every app that claims the type, default first, plus Other…), Show in BMAD Viewer (markdown), Reveal in Finder, Copy Path.
-- "Story 9.16" in text links to that story.
-- ⌘F finds in the document. The project's files are watched and the view reloads on change.
+Every story, ticket, epic and work item opens in the detail view with a browser-style tab bar under its header:
+
+- **Fixed tabs** are the item's own views — Ticket, Plan, Story file, Epic definition; for an epic, its document, `tickets.toml` and retrospective (click the links above an epic's story list). They cannot be closed.
+- **File tabs** open when you click a link or a file path in inline code (`scripts/x.py`). Close them with ×, or right-click a tab for Close Other Tabs / Close Tabs to the Right. Each item remembers its open tabs, across launches too.
+- `file.rs:42`, `file.rs:42-50` and `file.md#L42-L50` open the file with those lines highlighted and scrolled into view.
+
+Viewers: markdown rendered (with a Source toggle), `tickets.toml` as a ticket list with live status (and Source), code and text with syntax colours and line numbers, images with zoom in/out, fit and actual size (drag to pan, double-click to toggle), PDFs, folders, and an open/reveal panel for anything else. Each file tab's toolbar shows its path and opens it in the default app, Open With, or Finder.
+
+Right-click any link for Open in Tab, Open in <default app>, **Open With ›** (every app that claims the type, default first, plus Other…), Reveal in Finder and Copy Path. "Story 9.16" in text links to that story. ⌘F finds in the document. The project's files are watched and the view reloads on change.
 
 ## Not yet
 

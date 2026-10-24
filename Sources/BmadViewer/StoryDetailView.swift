@@ -6,34 +6,11 @@ struct StoryDetailView: View {
     let story: Story
     let project: Project
 
-    @State private var selectedLabel: String?
-
     var body: some View {
-        let document = currentDocument
-        VStack(alignment: .leading, spacing: 0) {
+        TabbedDocumentsView(context: "story:\(story.id)", fixed: DocTab.storyTabs(story), project: project) {
             header
-            Divider()
-            if let document {
-                if let markdown = document.markdown {
-                    MarkdownTextView(
-                        key: "\(story.id):\(document.label):\(store.lastLoaded?.timeIntervalSince1970 ?? 0)",
-                        markdown: markdown,
-                        baseURL: document.url?.deletingLastPathComponent() ?? project.root,
-                        project: project
-                    )
-                } else if let url = document.url {
-                    MarkdownFileView(url: url, project: project, version: store.lastLoaded)
-                }
-            } else {
-                ContentUnavailableView("No document", systemImage: "doc",
-                                       description: Text("This story has no file and no planning entry."))
-            }
         }
         .navigationTitle("Story \(story.number)")
-    }
-
-    private var currentDocument: StoryDocument? {
-        story.documents.first { $0.label == selectedLabel } ?? story.documents.first
     }
 
     private var header: some View {
@@ -53,17 +30,6 @@ struct StoryDetailView: View {
                     Text("risk \(risk)").font(.caption).foregroundStyle(risk == "high" ? .orange : .secondary)
                 }
                 Spacer()
-                if story.documents.count > 1 {
-                    Picker("Source", selection: Binding(
-                        get: { currentDocument?.label ?? "" },
-                        set: { selectedLabel = $0 }
-                    )) {
-                        ForEach(story.documents, id: \.label) { Text($0.label).tag($0.label) }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .fixedSize()
-                }
             }
             Text(story.title)
                 .font(.title2.weight(.semibold))
@@ -94,7 +60,7 @@ struct StoryDetailView: View {
                     Text("No files").font(.callout).foregroundStyle(.tertiary)
                 }
                 ForEach(files, id: \.self) { url in
-                    FileLink(url: url, showInViewer: store.showDocument)
+                    FileLink(url: url)
                 }
                 Spacer(minLength: 0)
             }
@@ -112,8 +78,8 @@ struct StoryDetailView: View {
             }
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 14)
-        .onChange(of: story.id) { selectedLabel = nil }
+        .padding(.top, 14)
+        .padding(.bottom, 10)
     }
 }
 
@@ -142,6 +108,7 @@ struct MarkdownFileView: View {
 
 struct MarkdownTextView: View {
     @Environment(ProjectStore.self) private var store
+    @Environment(\.openDocument) private var openDocument
     let key: String
     let markdown: String
     let baseURL: URL
@@ -158,28 +125,18 @@ struct MarkdownTextView: View {
                 MarkdownRenderer(baseURL: baseURL, projectRoot: root, storyNumbers: numbers).render(markdown)
             },
             onStoryLink: { store.select(storyNumber: $0) },
-            onShowInViewer: { store.showDocument($0) }
+            onOpenFile: openDocument
         )
     }
 }
 
-/// A non-story document (build-order.md, epics.md, a linked file) in the middle column.
+/// A project document (build-order.md, epics.md, sprint-status.yaml) in the middle column.
 struct DocumentDetailView: View {
-    @Environment(ProjectStore.self) private var store
     let url: URL
     let project: Project
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                FileLink(url: url, showInViewer: nil)
-                Spacer()
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            Divider()
-            MarkdownFileView(url: url, project: project, version: store.lastLoaded)
-        }
-        .navigationTitle(url.lastPathComponent)
+        FileViewer(url: url, lines: nil, project: project)
+            .navigationTitle(url.lastPathComponent)
     }
 }

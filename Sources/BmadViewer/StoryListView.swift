@@ -80,10 +80,14 @@ struct StoryListView: View {
                 Section {
                     HStack(spacing: 12) {
                         ForEach(epic.documents, id: \.self) { url in
-                            FileLink(url: url, label: docLabel(url, epic: epic), showInViewer: store.showDocument)
+                            FileLink(url: url, label: docLabel(url, epic: epic))
                         }
                     }
                     .font(.callout)
+                    // These open in the detail view, in the epic's own tabs.
+                    .environment(\.openDocument, OpenDocumentAction { url, lines in
+                        store.showEpicDocument(epic, url: url, lines: lines)
+                    })
                 }
             }
             if case .epic = store.sidebar {

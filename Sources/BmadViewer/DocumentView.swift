@@ -1,4 +1,5 @@
 import AppKit
+import BmadKit
 import SwiftUI
 
 /// A read-only, selectable, findable rich-text view. Clicking a file link opens
@@ -8,7 +9,8 @@ struct DocumentView: NSViewRepresentable {
     let key: String
     let render: @MainActor () -> NSAttributedString
     var onStoryLink: (String) -> Void
-    var onShowInViewer: (URL) -> Void
+    /// Opens a file link in a tab; nil outside a tabbed view, where links open in their app.
+    var onOpenFile: OpenDocumentAction?
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -46,7 +48,7 @@ struct DocumentView: NSViewRepresentable {
 
     func updateNSView(_ container: DocumentContainer, context: Context) {
         context.coordinator.onStoryLink = onStoryLink
-        context.coordinator.onShowInViewer = onShowInViewer
+        context.coordinator.onOpenFile = onOpenFile
         guard context.coordinator.key != key else { return }
         context.coordinator.key = key
         container.textView.textStorage?.setAttributedString(render())
@@ -60,14 +62,16 @@ struct DocumentView: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         var key: String?
         var onStoryLink: (String) -> Void = { _ in }
-        var onShowInViewer: (URL) -> Void = { _ in }
+        var onOpenFile: OpenDocumentAction?
 
         func textView(_ textView: NSTextView, clickedOnLink link: Any, at charIndex: Int) -> Bool {
             guard let url = link as? URL ?? (link as? String).flatMap(URL.init(string:)) else { return false }
             if url.scheme == MarkdownRenderer.storyScheme {
                 onStoryLink(url.lastPathComponent)
+            } else if url.isFileURL, let onOpenFile {
+                onOpenFile(url.withoutFragment, url.lineRange)
             } else {
-                FileActions.open(url)
+                FileActions.open(url.isFileURL ? url.withoutFragment : url)
             }
             return true
         }
@@ -78,7 +82,9 @@ struct DocumentView: NSViewRepresentable {
                   let url = link as? URL ?? (link as? String).flatMap(URL.init(string:)),
                   url.scheme != MarkdownRenderer.storyScheme
             else { return menu }
-            let items = FileActions.linkMenuItems(for: url) { [weak self] in self?.onShowInViewer($0) }
+            let file = url.isFileURL ? url.withoutFragment : url
+            let open = onOpenFile.map { f in { f(file, url.lineRange) } }
+            let items = FileActions.linkMenuItems(for: file, openInTab: open)
             for (i, item) in items.enumerated() { menu.insertItem(item, at: i) }
             menu.insertItem(.separator(), at: items.count)
             return menu

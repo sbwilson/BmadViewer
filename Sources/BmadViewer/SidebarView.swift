@@ -68,6 +68,7 @@ struct SidebarView: View {
         }
         .listStyle(.sidebar)
         .onChange(of: store.sidebar) { _, item in
+            store.epicDocsShown = nil
             if case .queue = item { return }
             if item?.workItemKind != nil {
                 store.selectedWorkItemID = nil
