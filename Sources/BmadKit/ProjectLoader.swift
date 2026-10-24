@@ -75,6 +75,7 @@ public enum ProjectLoader {
                 if let doc = index.file(epic: e, story: s, slug: slug) {
                     story.documents.append(StoryDocument(label: "Story file", url: doc))
                     if let text = try? String(contentsOf: doc, encoding: .utf8) {
+                        story.review = ReviewOrder.parse(text, document: doc, projectRoot: root)
                         story.frontMatter = FrontMatter.split(text).fields
                         if epicsDoc?.storyTitles[number] == nil, let t = story.frontMatter["title"] {
                             story.title = stripStoryPrefix(t)

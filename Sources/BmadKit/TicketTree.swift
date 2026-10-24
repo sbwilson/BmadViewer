@@ -230,6 +230,11 @@ public enum TicketTree {
                 s.documents.append(StoryDocument(label: "Story file", url: leaf))
                 s.frontMatter = r.leafFields.mapValues { "\($0)" }
             }
+            for doc in [r.leaf, r.plan].compactMap({ $0 }) where s.review == nil {
+                if let text = try? String(contentsOf: doc, encoding: .utf8) {
+                    s.review = ReviewOrder.parse(text, document: doc, projectRoot: root)
+                }
+            }
             if let plan = r.plan {
                 s.documents.append(StoryDocument(label: "Plan", url: plan))
                 if let fm = frontMatter(plan) {

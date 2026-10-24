@@ -76,6 +76,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     .sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }.joined(separator: ", ")
                 print("\(name): \(items.count) (\(counts))")
             }
+            let reviewed = p.allStories.filter { $0.review != nil }
+            print("Review orders: \(reviewed.count) stories, \(reviewed.reduce(0) { $0 + ($1.review?.stops.count ?? 0) }) stops, \(reviewed.reduce(0) { $0 + ($1.review?.stops.filter { $0.url == nil }.count ?? 0) }) without a link")
+            if ProcessInfo.processInfo.environment["BMADV_REVIEW_DETAIL"] != nil {
+                let moved = reviewed.reduce(0) { $0 + $1.review!.stops.filter { $0.movedFrom != nil }.count }
+                print("  moved: \(moved)")
+                for s in reviewed { for stop in s.review!.stops where stop.url == nil || !FileManager.default.fileExists(atPath: stop.url!.path(percentEncoded: false)) {
+                    print("  \(s.number): \(stop.url == nil ? "no link" : "missing \(stop.url!.path(percentEncoded: false))") — \(stop.framing.prefix(70))")
+                } }
+            }
+            for s in p.allStories where s.status.kind == .review {
+                let verdict: String = switch ReviewCompletion.edits(for: s, in: p) {
+                case .success(let edits): "can mark done (\(edits.count) edits)"
+                case .failure(let refusal): "refused: \(refusal.localizedDescription)"
+                }
+                print("  \(s.number) [\(s.status.raw)] review order: \(s.review != nil) · \(verdict)")
+            }
             for w in p.warnings { print("warning: \(w)") }
             exit(0)
         } catch {

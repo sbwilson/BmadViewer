@@ -16,6 +16,8 @@ struct DocTab: Identifiable, Hashable {
     /// Bumped each time the tab is opened again, so the viewer re-scrolls to `lines`.
     var nonce = 0
     let closable: Bool
+    /// The review pane of this story, rather than a document.
+    var reviewOf: String?
 
     static func fixed(_ doc: StoryDocument) -> DocTab {
         let icon: String = switch doc.label {
@@ -34,7 +36,13 @@ struct DocTab: Identifiable, Hashable {
                       url: url, lines: opened.lines, nonce: opened.nonce, closable: true)
     }
 
-    static func storyTabs(_ story: Story) -> [DocTab] { story.documents.map(fixed) }
+    static func storyTabs(_ story: Story) -> [DocTab] {
+        var tabs = story.documents.map(fixed)
+        if story.review != nil {
+            tabs.append(DocTab(id: "fixed:Review", title: "Review", icon: "checklist.checked", closable: false, reviewOf: story.id))
+        }
+        return tabs
+    }
 
     static func epicTabs(_ epic: Epic) -> [DocTab] {
         epic.documents.map { url in
@@ -175,7 +183,7 @@ struct TabbedDocumentsView<Header: View>: View {
             }
             if let selected {
                 DocTabContent(tab: selected, project: project)
-                    .id("\(selected.id)#\(selected.nonce)")
+                    .id("\(context)#\(selected.id)#\(selected.nonce)")
             } else {
                 ContentUnavailableView("No document", systemImage: "doc", description: Text("Nothing to show for this item."))
             }
@@ -282,7 +290,9 @@ struct DocTabContent: View {
     let project: Project
 
     var body: some View {
-        if let markdown = tab.markdown {
+        if let id = tab.reviewOf, let story = project.story(id: id), let review = story.review {
+            ReviewPaneView(story: story, review: review, project: project)
+        } else if let markdown = tab.markdown {
             MarkdownTextView(
                 key: "\(tab.id):\(store.lastLoaded?.timeIntervalSince1970 ?? 0)",
                 markdown: markdown,

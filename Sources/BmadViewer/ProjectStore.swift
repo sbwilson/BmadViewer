@@ -33,6 +33,8 @@ final class ProjectStore {
         didSet { if selectedStoryID != nil { epicDocsShown = nil } }
     }
     var selectedWorkItemID: WorkItem.ID?
+    /// The selected stop in each story's review pane.
+    var reviewStop: [Story.ID: Int] = [:]
     /// The epic whose own documents fill the detail view, until a story is chosen.
     var epicDocsShown: String?
     /// Open file tabs per story, ticket, epic or work item, saved per project.

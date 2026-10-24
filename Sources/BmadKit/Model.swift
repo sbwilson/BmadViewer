@@ -88,6 +88,8 @@ public struct Story: Identifiable, Hashable, Sendable {
     /// Prerequisites not yet met, as display numbers or epic names.
     public var waitsOn: [String] = []
     public var risk: String?
+    /// The story document's Suggested Review Order, when it has one.
+    public var review: ReviewOrder?
 
     public init(id: String, number: String, epicID: String, title: String, status: Status) {
         self.id = id

@@ -45,6 +45,17 @@ A ticket shows three views: **Ticket** (its `tickets.toml` entry as text), **Sto
 
 `BmadViewer --dump <project>` prints what was read and exits, for comparing with `tickets.py next`.
 
+## Reviewing a story
+
+A story whose document has a `## Suggested Review Order` (bmad-build writes one at the end of a build) gets a fixed **Review** tab:
+
+- **Left:** the review's concerns (its bold lines or `###` headings) and their stops — one line of framing and the `file:line` link.
+- **Right:** the selected stop's file, scrolled to and highlighting its line or range, under a bar with the stop's framing. ⌘[ and ⌘] step through the stops.
+- A link to a file that has since moved (`RustCore/crates/…` → `crates/…`) is followed to where a file of that name lives now, and marked moved; a file that is gone says so.
+- **Below:** for a story in `review`, **Mark Review Complete…** lists the exact lines it will change — the story's `development_status` line in `sprint-status.yaml` (`review` → `done`, comments kept) and the story file's front-matter `status:` — and asks before writing them. Nothing is committed. A story still in `build-order.md`'s queue is left alone: going done there also drops its row and lowers the check's floor in one commit (rule R2), so that stays a hand edit. Done stories keep the pane for reading.
+
+Ticket-tree (v7) plans carry no Suggested Review Order, so they get no Review tab.
+
 ## Retro actions and deferred work
 
 The sidebar's **Review** section lists what is owed that is not a story, with open counts.
