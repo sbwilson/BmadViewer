@@ -38,7 +38,7 @@ struct DocTab: Identifiable, Hashable {
 
     static func storyTabs(_ story: Story) -> [DocTab] {
         var tabs = story.documents.map(fixed)
-        if story.review != nil {
+        if story.review != nil || story.baseline != nil {
             tabs.append(DocTab(id: "fixed:Review", title: "Review", icon: "checklist.checked", closable: false, reviewOf: story.id))
         }
         return tabs
@@ -290,8 +290,8 @@ struct DocTabContent: View {
     let project: Project
 
     var body: some View {
-        if let id = tab.reviewOf, let story = project.story(id: id), let review = story.review {
-            ReviewPaneView(story: story, review: review, project: project)
+        if let id = tab.reviewOf, let story = project.story(id: id) {
+            ReviewPaneView(story: story, project: project)
         } else if let markdown = tab.markdown {
             MarkdownTextView(
                 key: "\(tab.id):\(store.lastLoaded?.timeIntervalSince1970 ?? 0)",

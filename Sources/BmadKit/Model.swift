@@ -99,6 +99,12 @@ public struct Story: Identifiable, Hashable, Sendable {
         self.status = status
     }
 
+    /// The commit the story's build started from: `baseline_commit` (v6 spec) or
+    /// `baseline_revision` (v7 plan).
+    public var baseline: String? {
+        (frontMatter["baseline_commit"] ?? frontMatter["baseline_revision"]).flatMap { $0.isEmpty ? nil : $0 }
+    }
+
     /// The first document that is a file.
     public var primaryFile: URL? { documents.lazy.compactMap(\.url).first }
     public var files: [URL] { documents.compactMap(\.url) }

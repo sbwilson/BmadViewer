@@ -92,6 +92,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 print("  \(s.number) [\(s.status.raw)] review order: \(s.review != nil) · \(verdict)")
             }
+            if let number = ProcessInfo.processInfo.environment["BMADV_DIFF"], let story = p.story(number: number), let baseline = story.baseline {
+                let range = try GitDiff.range(baseline: baseline, end: .story, document: story.primaryFile, projectRoot: p.root)
+                let files = try GitDiff.changedFiles(in: range)
+                print("Diff \(number): \(range.label) (\(range.note ?? "")) · \(files.count) files")
+                for stop in story.review?.stops ?? [] {
+                    guard let url = stop.url else { print("  stop \(stop.id): no link"); continue }
+                    let rels = [url, stop.movedFrom.map { p.root.appending(path: $0) }].compactMap { $0 }.map { GitDiff.relativePath($0, in: range.repository) }
+                    let rel = rels[0]
+                    guard let change = files.first(where: { rels.contains($0.path) }) else { print("  stop \(stop.id) \(rel): unchanged in range"); continue }
+                    var d = try GitDiff.diff(range, path: change.path, oldPath: change.oldPath)
+                    var full = false
+                    if let lines = stop.lines, !d.shows(lines) { d = try GitDiff.diff(range, path: change.path, oldPath: change.oldPath, context: nil); full = true }
+                    let lit = stop.lines.map { d.shows($0) } ?? true
+                    print("  stop \(stop.id) \(rel) [\(change.status)] hunks \(d.hunks.count)\(full ? " (whole file)" : "") · line \(stop.lines?.label ?? "-") shown: \(lit)")
+                }
+                let named = Set((story.review?.stops ?? []).flatMap { s in [s.url, s.movedFrom.map { p.root.appending(path: $0) }].compactMap { $0 }.map { GitDiff.relativePath($0, in: range.repository) } })
+                print("  other changed files: \(files.filter { !named.contains($0.path) }.map(\.path).joined(separator: ", "))")
+            }
             for w in p.warnings { print("warning: \(w)") }
             exit(0)
         } catch {
