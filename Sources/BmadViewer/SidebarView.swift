@@ -24,7 +24,7 @@ struct SidebarView: View {
                     .tag(SidebarItem.search)
             }
 
-            if !project.retroActions.isEmpty || !project.deferredWork.isEmpty {
+            if !project.retroActions.isEmpty || !project.deferredWork.isEmpty || !project.humanRuns.isEmpty {
                 Section("Review") {
                     if !project.retroActions.isEmpty {
                         row("Retro actions", systemImage: "arrow.uturn.backward.circle",
@@ -37,7 +37,20 @@ struct SidebarView: View {
                             count: project.deferredWork.filter { !$0.status.isTerminal }.count)
                             .tag(SidebarItem.deferredWork)
                     }
+                    if !project.humanRuns.isEmpty {
+                        row("Human runs", systemImage: "person.badge.clock",
+                            count: project.humanRuns.filter { !$0.status.isTerminal }.count)
+                            .tag(SidebarItem.humanRuns)
+                            .help("Smoke tests, checkpoints and human-in-the-loop tickets still owed")
+                    }
                 }
+            }
+
+            Section("Views") {
+                Label("Dependencies", systemImage: "point.3.connected.trianglepath.dotted")
+                    .tag(SidebarItem.graph)
+                Label("Burn-up", systemImage: "chart.line.uptrend.xyaxis")
+                    .tag(SidebarItem.burnup)
             }
 
             Section("Epics") {
@@ -75,7 +88,7 @@ struct SidebarView: View {
             store.epicDocsShown = nil
             if case .queue = item { return }
             if let kind = item?.workItemKind {
-                let list = kind == .deferred ? project.deferredWork : project.retroActions
+                let list = project.workItems(kind)
                 if let id = store.selectedWorkItemID, !list.contains(where: { $0.id == id }) { store.selectedWorkItemID = nil }
                 return
             }

@@ -141,6 +141,9 @@ public enum ProjectLoader {
             }
         }
         loadDeferredWork(into: &project, directories: [paths.implementation, storyDir])
+        Dependencies.infer(&project)
+        FollowThroughReader.apply(&project)
+        project.humanRuns = HumanRuns.read(project)
         return project
     }
 

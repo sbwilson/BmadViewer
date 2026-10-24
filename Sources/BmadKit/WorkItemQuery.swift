@@ -45,6 +45,13 @@ public struct WorkItemQuery: Codable, Hashable, Sendable {
 
         switch sort {
         case .key:
+            if kept.contains(where: { $0.kind == .humanRun }) {
+                // Human runs keep their source's grouping: smoke tests, checkpoints, tickets.
+                var order: [String] = []
+                for item in items where !order.contains(item.section ?? "") { order.append(item.section ?? "") }
+                let grouped = Dictionary(grouping: kept) { $0.section ?? "" }
+                return order.compactMap { k in grouped[k].map { Section(title: k.isEmpty ? "Other" : k, epic: nil, items: $0.sorted(by: byKey)) } }
+            }
             guard kept.contains(where: { $0.kind == .retroAction }) else {
                 return kept.isEmpty ? [] : [Section(title: "All", epic: nil, items: kept.sorted(by: byKey))]
             }

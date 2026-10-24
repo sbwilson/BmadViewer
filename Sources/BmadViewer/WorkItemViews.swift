@@ -25,6 +25,11 @@ struct WorkItemRow: View {
                             .foregroundStyle(.red)
                             .lineLimit(1)
                     }
+                    if let ft = item.followThrough { FollowThroughBadge(followThrough: ft) }
+                    if !item.linkedStories.isEmpty, item.kind != .humanRun || item.section != "Human-in-the-loop tickets" {
+                        Text("→ \(item.linkedStories.joined(separator: ", "))")
+                            .font(.caption.monospacedDigit()).foregroundStyle(.blue).lineLimit(1)
+                    }
                     if let owner = item.owner, !owner.isEmpty {
                         Text(owner).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     }
@@ -57,7 +62,7 @@ struct WorkItemListView: View {
     var body: some View {
         @Bindable var store = store
         let query = store.query(kind)
-        let all = kind == .deferred ? project.deferredWork : project.retroActions
+        let all = project.workItems(kind)
         let sections = query.apply(store.visibleWorkItems(kind))
         let shown = sections.reduce(0) { $0 + $1.items.count }
         List(selection: $store.selectedWorkItemID) {
@@ -224,6 +229,37 @@ struct WorkItemDetailView: View {
                         .textSelection(.enabled)
                 }
 
+                if !item.linkedStories.isEmpty {
+                    HStack(spacing: 10) {
+                        Text(item.kind == .retroAction ? "Became" : "Story").font(.callout).foregroundStyle(.secondary)
+                        ForEach(item.linkedStories, id: \.self) { number in
+                            if let story = project.story(number: number) {
+                                Button { store.select(storyNumber: number) } label: {
+                                    HStack(spacing: 4) {
+                                        Text(number).monospacedDigit().fontWeight(.semibold)
+                                        Text(story.title).lineLimit(1)
+                                        StatusBadge(status: story.status)
+                                    }
+                                }
+                                .buttonStyle(.link)
+                            } else {
+                                Text(number).monospacedDigit().foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .font(.callout)
+                }
+                if let ft = item.followThrough {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        FollowThroughBadge(followThrough: ft)
+                        Text(inlineMarkdown(ft.text + (ft.evidence.map { " · \($0)" } ?? "")))
+                            .font(.callout).foregroundStyle(.secondary).lineLimit(2).textSelection(.enabled)
+                        Spacer(minLength: 0)
+                        FileLink(url: ft.source, label: "\(ft.source.lastPathComponent):\(ft.line)", lines: LineRange(ft.line))
+                            .font(.caption)
+                    }
+                }
                 HStack(spacing: 14) {
                     if let source = item.source {
                         FileLink(url: source, label: source.lastPathComponent + (item.line.map { ":\($0)" } ?? ""),
@@ -241,5 +277,24 @@ struct WorkItemDetailView: View {
             .padding(.bottom, 10)
         }
         .navigationTitle(item.label)
+    }
+}
+
+/// What the next retrospective found: landed, partly, not landed.
+struct FollowThroughBadge: View {
+    let followThrough: WorkItem.FollowThrough
+
+    var body: some View {
+        let (icon, label, color): (String, String, Color) = switch followThrough.verdict {
+        case .landed: ("checkmark.circle.fill", "landed", .green)
+        case .partly: ("circle.lefthalf.filled", "partly", .orange)
+        case .notLanded: ("xmark.circle.fill", "not landed", .red)
+        case .unclear: ("questionmark.circle", "checked", .secondary)
+        }
+        Label(label, systemImage: icon)
+            .font(.caption.weight(.medium))
+            .foregroundStyle(color)
+            .labelStyle(.titleAndIcon)
+            .help("Next retrospective: \(followThrough.text)")
     }
 }

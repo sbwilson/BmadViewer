@@ -31,15 +31,15 @@ public struct Status: Hashable, Sendable {
 
     public var kind: Kind {
         switch raw.lowercased() {
-        case "blocked": .blocked
-        case "in-progress", "in_progress", "in progress", "doing": .inProgress
+        case "blocked", "fail", "failed": .blocked
+        case "in-progress", "in_progress", "in progress", "doing", "partial": .inProgress
         case "review", "in-review": .review
         case "ready-for-dev", "ready", "ready_for_dev", "drafted", "contexted": .ready
         // v7: no status yet, a planned entry with no file, or a build's draft are all backlog.
-        case "backlog", "todo", "planned", "not started", "draft", "open", "proposed": .backlog
+        case "backlog", "todo", "planned", "not started", "draft", "open", "proposed", "not-run", "not-reached": .backlog
         case "built": .built
-        case "done", "completed", "closed": .done
-        case "superseded", "dropped", "cancelled", "canceled": .superseded
+        case "done", "completed", "closed", "pass", "passed", "reached": .done
+        case "superseded", "dropped", "cancelled", "canceled", "n/a": .superseded
         case "optional": .optional
         default: .other
         }
@@ -90,6 +90,13 @@ public struct Story: Identifiable, Hashable, Sendable {
     public var risk: String?
     /// The story document's Suggested Review Order, when it has one.
     public var review: ReviewOrder?
+    /// Stories this one comes after (ids). Resolved `after` in a ticket tree; inferred
+    /// from build-order and epics.md prose in a sprint-status project.
+    public var dependsOn: [Story.ID] = []
+    /// Whole epics this one waits on (ticket tree `after = ["epic-<slug>"]` or an epic gate).
+    public var dependsOnEpics: [String] = []
+    /// A ticket-tree entry with `hitl = true`: a human must take part.
+    public var hitl = false
 
     public init(id: String, number: String, epicID: String, title: String, status: Status) {
         self.id = id
@@ -180,6 +187,8 @@ public struct Project: Sendable {
     public var deferredWork: [WorkItem] = []
     /// The ledger file, when there is one.
     public var deferredWorkFile: URL?
+    /// Smoke tests, checkpoints and human-in-the-loop tickets still owed or recorded.
+    public var humanRuns: [WorkItem] = []
     /// Things the loader could not make sense of, shown rather than hidden.
     public var warnings: [String]
 
@@ -211,6 +220,14 @@ public struct Project: Sendable {
     }
 
     public var allStories: [Story] { epics.flatMap(\.stories) }
+
+    public func workItems(_ kind: WorkItem.Kind) -> [WorkItem] {
+        switch kind {
+        case .retroAction: retroActions
+        case .deferred: deferredWork
+        case .humanRun: humanRuns
+        }
+    }
 
     public func story(number: String) -> Story? {
         allStories.first { $0.number == number }

@@ -234,6 +234,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                 }
             }
+            if ProcessInfo.processInfo.environment["BMADV_INSIGHTS"] != nil {
+                let deps = p.allStories.reduce(0) { $0 + $1.dependsOn.count }
+                let graph = DependencyGraph.build(p, epic: nil, hideFinished: false)
+                print("Dependencies: \(deps) edges over \(p.allStories.filter { !$0.dependsOn.isEmpty }.count) stories · \(graph.layers) layers · longest remaining chain: \(graph.longestChain.compactMap { p.story(id: $0)?.number }.joined(separator: " → "))")
+                let ft = p.retroActions.compactMap(\.followThrough)
+                print("Follow-through: \(ft.count) of \(p.retroActions.count) actions checked (" + ["landed", "partly", "notLanded", "unclear"].map { v in "\(v) \(ft.filter { $0.verdict.rawValue == v }.count)" }.joined(separator: ", ") + ")")
+                let linked = p.retroActions.filter { !$0.linkedStories.isEmpty }
+                print("Linked stories: \(linked.count) actions · " + linked.prefix(4).map { "\($0.label)→\($0.linkedStories.joined(separator: ","))" }.joined(separator: "  "))
+                let t = Date()
+                let history = try Burnup.history(p)
+                if let first = history.first, let last = history.last {
+                    let a = first.counts(epic: nil), b = last.counts(epic: nil)
+                    let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"
+                    print("Burn-up: \(history.count) snapshots in \(Int(Date().timeIntervalSince(t) * 1000)) ms · \(f.string(from: first.date)) \(a.done)/\(a.total) → \(f.string(from: last.date)) \(b.done)/\(b.total) done, \(b.built) built")
+                    let now = p.allStories.filter { !$0.status.isTerminal || $0.status.kind == .done }
+                    for epic in p.epics {
+                        let c = last.counts(epic: epic.id)
+                        let doneNow = epic.stories.filter { $0.status.kind == .done }.count
+                        let totalNow = epic.stories.filter { $0.status.kind != .superseded }.count
+                        if c.done != doneNow || c.total != totalNow { print("  epic \(epic.id): replay \(c.done)/\(c.total) now \(doneNow)/\(totalNow)") }
+                    }
+                    print("  loader now: \(p.allStories.filter { $0.status.kind == .done }.count)/\(now.count) done, \(p.allStories.filter { $0.status.kind == .built }.count) built")
+                }
+                let counts = Dictionary(grouping: p.humanRuns, by: { $0.section ?? "" }).map { "\($0.key) \($0.value.count)" }.sorted().joined(separator: ", ")
+                print("Human runs: \(p.humanRuns.count) (\(counts)) · open \(p.humanRuns.filter { !$0.status.isTerminal }.count): " + p.humanRuns.filter { !$0.status.isTerminal }.prefix(6).map { "\($0.label) [\($0.status.raw)]" }.joined(separator: ", "))
+            }
             for w in p.warnings { print("warning: \(w)") }
             exit(0)
         } catch {

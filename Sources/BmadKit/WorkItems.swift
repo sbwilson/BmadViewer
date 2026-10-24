@@ -7,6 +7,19 @@ public struct WorkItem: Identifiable, Hashable, Sendable {
     public enum Kind: String, Sendable {
         case retroAction = "Retro action"
         case deferred = "Deferred work"
+        case humanRun = "Human runs"
+    }
+
+    /// What the next retrospective found when it checked this action.
+    public struct FollowThrough: Hashable, Sendable {
+        public enum Verdict: String, Sendable { case landed, partly, notLanded, unclear }
+        public let verdict: Verdict
+        /// The cell as written ("Landed", "Partly. The register row…").
+        public let text: String
+        public let evidence: String?
+        /// The retrospective that checked it, and the table row.
+        public let source: URL
+        public let line: Int
     }
 
     public struct Field: Hashable, Sendable {
@@ -37,6 +50,9 @@ public struct WorkItem: Identifiable, Hashable, Sendable {
     public var fields: [Field] = []
     /// Story keys a `gate:` line blocks.
     public var gates: [String] = []
+    /// Stories this item became or names (`9.16` from "retro item 152" in its text).
+    public var linkedStories: [String] = []
+    public var followThrough: FollowThrough?
 
     public init(id: String, kind: Kind, label: String, title: String, status: Status) {
         self.id = id

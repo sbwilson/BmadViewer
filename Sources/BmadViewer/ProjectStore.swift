@@ -10,12 +10,16 @@ enum SidebarItem: Hashable {
     case document(URL)
     case retroActions
     case deferredWork
+    case humanRuns
     case search
+    case graph
+    case burnup
 
     var workItemKind: WorkItem.Kind? {
         switch self {
         case .retroActions: .retroAction
         case .deferredWork: .deferred
+        case .humanRuns: .humanRun
         default: nil
         }
     }
@@ -112,6 +116,26 @@ final class ProjectStore {
         return project.deferredWork.filter { ($0.line ?? .max) <= line }.max { ($0.line ?? 0) < ($1.line ?? 0) }
     }
 
+    // MARK: Graph and burn-up
+
+    /// The epic the dependency graph is scoped to; nil for all.
+    var graphEpic: String?
+    var graphFocus: Story.ID?
+    var burnupEpic: String?
+    private(set) var burnup: Result<[Burnup.Snapshot], Error>?
+    @ObservationIgnored private var burnupFor: Date?
+
+    /// Replays the history once per load, off the main thread.
+    func loadBurnupIfNeeded() {
+        guard let project, burnupFor != lastLoaded || burnup == nil else { return }
+        burnupFor = lastLoaded
+        burnup = nil
+        Task {
+            let result = await Task.detached(priority: .userInitiated) { Result { try Burnup.history(project) } }.value
+            if self.project?.root == project.root { burnup = result }
+        }
+    }
+
     // MARK: History
 
     /// Where the window is: what back and forward step between.
@@ -182,6 +206,9 @@ final class ProjectStore {
         case .all: return "All stories"
         case .search: return "Find in Project"
         case .retroActions: return "Retro actions"
+        case .humanRuns: return "Human runs"
+        case .graph: return "Dependencies"
+        case .burnup: return "Burn-up"
         case .deferredWork: return "Deferred work"
         case .document(let url): return url.lastPathComponent
         default: return "—"
@@ -422,7 +449,7 @@ final class ProjectStore {
         case .epic(let id): stories = project.epics.first { $0.id == id }?.stories ?? []
         case .active: stories = project.allStories.filter(\.status.isActive)
         case .all, .none: stories = project.allStories
-        case .queue, .document, .retroActions, .deferredWork, .search: stories = []
+        case .queue, .document, .retroActions, .deferredWork, .humanRuns, .search, .graph, .burnup: stories = []
         }
         if hideFinished, sidebar != .active { stories = stories.filter { !$0.status.isTerminal } }
         let q = search.trimmingCharacters(in: .whitespaces)
@@ -436,13 +463,13 @@ final class ProjectStore {
 
     var selectedWorkItem: WorkItem? {
         guard let id = selectedWorkItemID, let kind = sidebar?.workItemKind, let project else { return nil }
-        return (kind == .deferred ? project.deferredWork : project.retroActions).first { $0.id == id }
+        return project.workItems(kind).first { $0.id == id }
     }
 
     /// Items of one kind after search and the finished filter.
     func visibleWorkItems(_ kind: WorkItem.Kind) -> [WorkItem] {
         guard let project else { return [] }
-        var items = kind == .deferred ? project.deferredWork : project.retroActions
+        var items = project.workItems(kind)
         if hideFinished { items = items.filter { !$0.status.isTerminal } }
         let q = search.trimmingCharacters(in: .whitespaces)
         if !q.isEmpty {

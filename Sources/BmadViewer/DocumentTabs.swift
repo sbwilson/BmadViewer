@@ -56,7 +56,7 @@ struct DocTab: Identifiable, Hashable {
     }
 
     static func workItemTabs(_ item: WorkItem) -> [DocTab] {
-        [DocTab(id: "fixed:item", title: item.kind == .deferred ? "Entry" : "Action", icon: "checklist",
+        [DocTab(id: "fixed:item", title: item.kind == .deferred ? "Entry" : item.kind == .humanRun ? "Run" : "Action", icon: "checklist",
                 markdown: item.markdown, closable: false)]
     }
 }

@@ -219,6 +219,9 @@ public enum TicketTree {
             var s = Story(id: r.key, number: r.number, epicID: r.epicSlug, title: r.title, status: Status(statusWord))
             s.type = r.type
             s.risk = r.entry?.risk ?? (r.leafFields["risk"] as? String)
+            s.dependsOn = r.after.filter { byKey[$0] != nil }
+            s.dependsOnEpics = r.after.filter { byKey[$0] == nil } + r.gatedBy
+            s.hitl = r.entry?.hitl == true || r.leafFields["hitl"] as? Bool == true
             // Only a ticket that has not started is waiting; a built one is past its prerequisites.
             if ["planned", "backlog"].contains(r.state) {
                 s.waitsOn = r.after.filter { !met.contains($0) }.map(display)
@@ -309,6 +312,8 @@ public enum TicketTree {
         ProjectLoader.loadDeferredWork(into: &project, directories: [
             paths.implementation, storeRoot(root: root, paths: paths).appending(path: "implementation-artifacts"),
         ])
+        FollowThroughReader.apply(&project)
+        project.humanRuns = HumanRuns.read(project)
         return project
     }
 
