@@ -102,6 +102,7 @@ final class DocumentContainer: NSView {
     init(textView: NSTextView) {
         self.textView = textView
         super.init(frame: NSRect(x: 0, y: 0, width: 480, height: 480))
+        clipsToBounds = true
         scrollView.frame = bounds
         scrollView.autoresizingMask = [.width, .height]
         scrollView.hasVerticalScroller = true

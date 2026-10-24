@@ -319,6 +319,7 @@ final class LineNumberRuler: NSRulerView {
     init(textView: NSTextView, scrollView: NSScrollView) {
         super.init(scrollView: scrollView, orientation: .verticalRuler)
         clientView = textView
+        clipsToBounds = true
         ruleThickness = 40
     }
 
@@ -330,10 +331,13 @@ final class LineNumberRuler: NSRulerView {
     }
 
     override func drawHashMarksAndLabels(in rect: NSRect) {
+        // Only the dirty rect: views do not clip to their bounds since macOS 14, so
+        // filling `bounds` painted the gutter's edge up through the header above.
+        let area = rect.intersection(visibleRect)
         NSColor.textBackgroundColor.setFill()
-        bounds.fill()
+        area.fill()
         NSColor.separatorColor.setFill()
-        NSRect(x: bounds.maxX - 1, y: bounds.minY, width: 1, height: bounds.height).fill()
+        NSRect(x: bounds.maxX - 1, y: area.minY, width: 1, height: area.height).fill()
         guard let tv = clientView as? NSTextView, let lm = tv.layoutManager, let tc = tv.textContainer else { return }
         let visible = tv.visibleRect
         let glyphs = lm.glyphRange(forBoundingRect: visible, in: tc)
