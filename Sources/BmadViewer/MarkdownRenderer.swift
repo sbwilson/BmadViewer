@@ -95,6 +95,9 @@ struct MarkdownRenderer {
 
         case let code as CodeBlock:
             let box = NSTextBlock()
+            // Without a content width a text block shrinks to its narrowest glyph:
+            // one character per line.
+            box.setContentWidth(100, type: .percentageValueType)
             box.backgroundColor = .quaternarySystemFill
             box.setWidth(8, type: .absoluteValueType, for: .padding)
             box.setWidth(ctx.indent, type: .absoluteValueType, for: .margin, edge: .minX)
@@ -115,6 +118,7 @@ struct MarkdownRenderer {
 
         case is ThematicBreak:
             let rule = NSTextBlock()
+            rule.setContentWidth(100, type: .percentageValueType)
             rule.setBorderColor(.separatorColor, for: .maxY)
             rule.setWidth(1, type: .absoluteValueType, for: .border, edge: .maxY)
             rule.setWidth(6, type: .absoluteValueType, for: .margin, edge: .maxY)
