@@ -52,10 +52,7 @@ struct DocumentView: NSViewRepresentable {
         guard context.coordinator.key != key else { return }
         context.coordinator.key = key
         container.textView.textStorage?.setAttributedString(render())
-        // Scroll only this clip view: NSView.scroll walks up through SwiftUI's own
-        // scroll views.
-        container.scrollView.contentView.scroll(to: .zero)
-        container.scrollView.reflectScrolledClipView(container.scrollView.contentView)
+        container.scroll(toY: 0)
     }
 
     @MainActor
@@ -114,6 +111,15 @@ final class DocumentContainer: NSView {
     }
 
     required init?(coder: NSCoder) { fatalError("not used") }
+
+    /// Scrolls this clip view only (NSView.scroll walks up into SwiftUI's scroll
+    /// views) to `y` in the document. A vertical ruler is an inset on the clip view,
+    /// whose bounds start at minus that inset; scrolling to x 0 slid the text under it.
+    func scroll(toY y: CGFloat) {
+        let clip = scrollView.contentView
+        clip.scroll(to: NSPoint(x: -clip.contentInsets.left, y: y - clip.contentInsets.top))
+        scrollView.reflectScrolledClipView(clip)
+    }
 
     override var intrinsicContentSize: NSSize {
         NSSize(width: NSView.noIntrinsicMetric, height: NSView.noIntrinsicMetric)

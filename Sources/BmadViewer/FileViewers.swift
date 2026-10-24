@@ -262,21 +262,17 @@ struct SourceCodeView: NSViewRepresentable {
             ruler.updateThickness()
             ruler.needsDisplay = true
         }
-        let scroll = container.scrollView
         let textView = container.textView
         DispatchQueue.main.async {
             guard let highlight, let lm = textView.layoutManager, let tc = textView.textContainer else {
-                scroll.contentView.scroll(to: .zero)
-                scroll.reflectScrolledClipView(scroll.contentView)
+                container.scroll(toY: 0)
                 return
             }
             lm.ensureLayout(forCharacterRange: highlight)
             let glyphs = lm.glyphRange(forCharacterRange: highlight, actualCharacterRange: nil)
             let rect = lm.boundingRect(forGlyphRange: glyphs, in: tc)
-            let y = max(0, rect.minY + textView.textContainerOrigin.y - scroll.contentView.bounds.height * 0.3)
-            // Scroll only this clip view (NSView.scroll walks up into SwiftUI's).
-            scroll.contentView.scroll(to: NSPoint(x: 0, y: y))
-            scroll.reflectScrolledClipView(scroll.contentView)
+            let visible = container.scrollView.contentView.bounds.height
+            container.scroll(toY: max(0, rect.minY + textView.textContainerOrigin.y - visible * 0.3))
         }
     }
 
