@@ -66,7 +66,7 @@ The sidebar's **Review** section lists what is owed that is not a story, with op
 | each retrospective's `## Action items` (v7, or v6 with no `action_items`) | numbered/bulleted items or a table with an `Action` column, grouped by `###`; status `proposed` |
 | `deferred-work.md` in the implementation artifacts | canonical `### DW-<n>:` entries (one `key: value` per line, `gate:`, `status: done <date>`), and legacy `- source_spec:` / `- source_plan:` bullets, closed by a `disposition:` starting `fixed`, `closed`, `done`… |
 
-Retro actions group by epic, newest retrospective first; deferred work by status, newest first. Search matches every field, and **Hide finished** applies. Each item links to the line it is written on; paths in `location:` link to the files.
+**Sort** by key (the default: `DW-12` after `DW-9`, newest first, retro actions kept with their epic), state (open work first, done last, one section per state) or priority (critical → unspecified, one section per level), newest or oldest first. **Filter** by state, priority and, for retro actions, epic; the menu shows how many items each choice covers. Priority is the deferred-work format's `severity:` (or a `priority:` field); retro actions carry neither, so they all read as unspecified. Sort and filters are saved per project. Search matches every field, and **Hide finished** applies. Each item links to the line it is written on; paths in `location:` link to the files.
 
 ## Documents and tabs
 

@@ -48,6 +48,7 @@ func severityColor(_ severity: String) -> Color {
 }
 
 /// Retro actions grouped by epic, or deferred work grouped by status, open first.
+/// Retro actions or deferred work, sorted by key, state or priority, with filters.
 struct WorkItemListView: View {
     @Environment(ProjectStore.self) private var store
     let project: Project
@@ -55,24 +56,35 @@ struct WorkItemListView: View {
 
     var body: some View {
         @Bindable var store = store
-        let items = store.visibleWorkItems(kind)
+        let query = store.query(kind)
+        let all = kind == .deferred ? project.deferredWork : project.retroActions
+        let sections = query.apply(store.visibleWorkItems(kind))
+        let shown = sections.reduce(0) { $0 + $1.items.count }
         List(selection: $store.selectedWorkItemID) {
-            ForEach(groups(items), id: \.title) { group in
-                Section("\(group.title) (\(group.items.count))") {
-                    ForEach(group.items) { WorkItemRow(item: $0).tag($0.id) }
+            ForEach(sections, id: \.title) { section in
+                Section("\(title(section)) (\(section.items.count))") {
+                    ForEach(section.items) { WorkItemRow(item: $0).tag($0.id) }
                 }
             }
         }
         .overlay {
-            if items.isEmpty {
-                ContentUnavailableView(store.search.isEmpty ? "Nothing here" : "No matches", systemImage: "checkmark.circle",
-                                       description: Text(emptyText))
+            if shown == 0 {
+                VStack(spacing: 10) {
+                    ContentUnavailableView(store.search.isEmpty ? "Nothing here" : "No matches", systemImage: "checkmark.circle",
+                                           description: Text(emptyText(query)))
+                    if query.activeFilterCount > 0 {
+                        Button("Clear Filters") { clearFilters() }
+                    }
+                }
             }
         }
         .navigationTitle(kind.rawValue)
+        .navigationSubtitle("\(shown) of \(all.count)")
         .toolbar {
-            if kind == .deferred, let url = project.deferredWorkFile {
-                ToolbarItem {
+            ToolbarItemGroup {
+                sortMenu(query)
+                filterMenu(query, all: all)
+                if kind == .deferred, let url = project.deferredWorkFile {
                     Button { store.showDocument(url) } label: { Label("Show deferred-work.md", systemImage: "doc.text") }
                         .help("Show deferred-work.md")
                 }
@@ -80,42 +92,91 @@ struct WorkItemListView: View {
         }
     }
 
-    private var emptyText: String {
-        store.hideFinished ? "Finished items are hidden." : (kind == .deferred ? "No deferred-work.md entries." : "No retrospective action items.")
+    private func update(_ change: (inout WorkItemQuery) -> Void) {
+        var q = store.query(kind)
+        change(&q)
+        store.setQuery(q, for: kind)
     }
 
-    struct Group { let title: String; let items: [WorkItem] }
-
-    /// Canonical entries by DW number, ahead of legacy bullets, which go by line.
-    private func recency(_ item: WorkItem) -> (Int, Int) {
-        if let n = Int(item.label.dropFirst(3)), item.label.hasPrefix("DW-") { return (1, n) }
-        return (0, item.line ?? 0)
+    private func clearFilters() {
+        update { $0.states = []; $0.priorities = []; $0.epics = [] }
     }
 
-    private func groups(_ items: [WorkItem]) -> [Group] {
-        switch kind {
-        case .retroAction:
-            // By epic, newest retrospective first, keeping each epic's own order.
-            var order: [String] = []
-            var byEpic: [String: [WorkItem]] = [:]
-            for item in items {
-                let key = item.epic ?? "—"
-                if byEpic[key] == nil { order.append(key) }
-                byEpic[key, default: []].append(item)
+    private func sortMenu(_ query: WorkItemQuery) -> some View {
+        Menu {
+            Picker("Sort by", selection: Binding(get: { query.sort }, set: { s in update { $0.sort = s } })) {
+                ForEach(WorkItemQuery.Sort.allCases, id: \.self) { Text($0.rawValue).tag($0) }
             }
-            return order.reversed().map { key in
-                let title = project.epics.first { $0.id == key }.map { "Epic \($0.number ?? $0.id): \($0.title)" } ?? "Epic \(key)"
-                return Group(title: title, items: byEpic[key]!)
+            .pickerStyle(.inline)
+            Picker("Order", selection: Binding(get: { query.ascending }, set: { a in update { $0.ascending = a } })) {
+                Text("Newest first").tag(false)
+                Text("Oldest first").tag(true)
             }
-        case .deferred:
-            let byStatus = Dictionary(grouping: items, by: \.status.raw)
-            let rank: (String) -> Int = { ["open": 0, "in-progress": 1, "done": 3][$0] ?? 2 }
-            return byStatus.keys.sorted { (rank($0), $0) < (rank($1), $1) }.map { status in
-                // Newest first within a status: highest DW number, then legacy bullets by line.
-                Group(title: status.prefix(1).uppercased() + status.dropFirst(),
-                      items: byStatus[status]!.sorted { recency($0) > recency($1) })
-            }
+            .pickerStyle(.inline)
+        } label: {
+            Label("Sort", systemImage: "arrow.up.arrow.down")
         }
+        .help("Sort by \(query.sort.rawValue.lowercased()), \(query.ascending ? "oldest" : "newest") first")
+    }
+
+    private func filterMenu(_ query: WorkItemQuery, all: [WorkItem]) -> some View {
+        let states = Set(all.map(\.status.raw)).sorted { (WorkItemQuery.stateRank($0), $0) < (WorkItemQuery.stateRank($1), $1) }
+        let priorities = Set(all.map(\.priority)).sorted()
+        let epics = kind == .retroAction ? orderedEpics(all) : []
+        return Menu {
+            Section("State") {
+                ForEach(states, id: \.self) { state in
+                    Toggle(isOn: Binding(get: { query.states.contains(state) }, set: { on in update { if on { $0.states.insert(state) } else { $0.states.remove(state) } } })) {
+                        Text("\(state.prefix(1).uppercased() + state.dropFirst()) (\(all.filter { $0.status.raw == state }.count))")
+                    }
+                }
+            }
+            if priorities.count > 1 || priorities.first != .unspecified {
+                Section("Priority") {
+                    ForEach(priorities, id: \.self) { p in
+                        Toggle(isOn: Binding(get: { query.priorities.contains(p) }, set: { on in update { if on { $0.priorities.insert(p) } else { $0.priorities.remove(p) } } })) {
+                            Text("\(p.label) (\(all.filter { $0.priority == p }.count))")
+                        }
+                    }
+                }
+            }
+            if !epics.isEmpty {
+                Section("Epic") {
+                    ForEach(epics, id: \.self) { epic in
+                        Toggle(isOn: Binding(get: { query.epics.contains(epic) }, set: { on in update { if on { $0.epics.insert(epic) } else { $0.epics.remove(epic) } } })) {
+                            Text(epicTitle(epic))
+                        }
+                    }
+                }
+            }
+            Divider()
+            Button("Clear Filters") { clearFilters() }
+                .disabled(query.activeFilterCount == 0)
+        } label: {
+            Label(query.activeFilterCount > 0 ? "Filters (\(query.activeFilterCount))" : "Filter",
+                  systemImage: query.activeFilterCount > 0 ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+        }
+        .help(query.activeFilterCount > 0 ? "\(query.activeFilterCount) filters on" : "Filter by state, priority or epic")
+    }
+
+    private func orderedEpics(_ items: [WorkItem]) -> [String] {
+        var seen: [String] = []
+        for item in items { if let e = item.epic, !seen.contains(e) { seen.append(e) } }
+        return seen
+    }
+
+    private func epicTitle(_ id: String) -> String {
+        project.epics.first { $0.id == id }.map { "Epic \($0.number ?? $0.id): \($0.title)" } ?? "Epic \(id)"
+    }
+
+    private func title(_ section: WorkItemQuery.Section) -> String {
+        section.epic.map(epicTitle) ?? section.title
+    }
+
+    private func emptyText(_ query: WorkItemQuery) -> String {
+        if query.activeFilterCount > 0 { return "No items match the filters." }
+        if store.hideFinished { return "Finished items are hidden." }
+        return kind == .deferred ? "No deferred-work.md entries." : "No retrospective action items."
     }
 }
 

@@ -33,6 +33,10 @@ final class ProjectStore {
         didSet { if selectedStoryID != nil { epicDocsShown = nil } }
     }
     var selectedWorkItemID: WorkItem.ID?
+    /// Sort and filters for the retro-action and deferred-work lists, saved per project.
+    var workQueries: [String: WorkItemQuery] = [:] {
+        didSet { if workQueries != oldValue { saveQueries() } }
+    }
     /// The selected stop in each story's review pane.
     var reviewStop: [Story.ID: Int] = [:]
     /// The epic whose own documents fill the detail view, until a story is chosen.
@@ -94,7 +98,10 @@ final class ProjectStore {
                 lastLoaded = Date()
                 if selectedStoryID.map({ p.story(id: $0) == nil }) == true { selectedStoryID = nil }
                 if rewatch || watcher == nil { watch(p) }
-                if rewatch { loadTabs(p.root) }
+                if rewatch {
+                    loadTabs(p.root)
+                    loadQueries(p.root)
+                }
             case .failure(let e):
                 error = e.localizedDescription
                 if project?.root != root { project = nil }
@@ -116,6 +123,22 @@ final class ProjectStore {
             s.opened = s.opened.filter { FileManager.default.fileExists(atPath: $0.path) }
             return s
         }
+    }
+
+    func query(_ kind: WorkItem.Kind) -> WorkItemQuery { workQueries[kind.rawValue] ?? WorkItemQuery() }
+
+    func setQuery(_ query: WorkItemQuery, for kind: WorkItem.Kind) { workQueries[kind.rawValue] = query }
+
+    private func queriesKey(_ root: URL) -> String { "workQueries:\(root.path(percentEncoded: false))" }
+
+    private func loadQueries(_ root: URL) {
+        workQueries = UserDefaults.standard.data(forKey: queriesKey(root))
+            .flatMap { try? JSONDecoder().decode([String: WorkItemQuery].self, from: $0) } ?? [:]
+    }
+
+    private func saveQueries() {
+        guard let root = project?.root, let data = try? JSONEncoder().encode(workQueries) else { return }
+        UserDefaults.standard.set(data, forKey: queriesKey(root))
     }
 
     private func saveTabs() {
