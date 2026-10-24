@@ -59,6 +59,7 @@ struct ProjectView: View {
                 switch store.sidebar {
                 case .queue: QueueView(project: project)
                 case .document(let url): DocumentDetailView(url: url, project: project)
+                case .dashboard: DashboardCardsView(project: project)
                 case .search: SearchView(project: project)
                 case .graph: GraphControlsView(project: project)
                 case .burnup: BurnupControlsView(project: project)
@@ -70,7 +71,9 @@ struct ProjectView: View {
             }
             .navigationSplitViewColumnWidth(min: 280, ideal: 360, max: 520)
         } detail: {
-            if store.sidebar == .graph {
+            if store.sidebar == .dashboard {
+                DashboardView(project: project)
+            } else if store.sidebar == .graph {
                 DependencyGraphView(project: project)
             } else if store.sidebar == .burnup {
                 BurnupChartView(project: project)

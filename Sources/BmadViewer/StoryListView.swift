@@ -1,9 +1,10 @@
 import BmadKit
 import SwiftUI
 
-extension Status {
+extension Status.Kind {
+    /// One colour per kind, shared by badges and charts.
     var color: Color {
-        switch kind {
+        switch self {
         case .blocked: .red
         case .inProgress: .blue
         case .review: .purple
@@ -16,6 +17,10 @@ extension Status {
         case .other: .orange
         }
     }
+}
+
+extension Status {
+    var color: Color { kind.color }
 }
 
 struct StatusBadge: View {

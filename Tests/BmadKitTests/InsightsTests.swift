@@ -174,6 +174,31 @@ private let v7 = Bundle.module.url(forResource: "Fixtures/ticket-tree", withExte
         #expect(snaps[1].date == Date(timeIntervalSince1970: 2000))
     }
 
+    @Test func eventsAndMilestonesFromASprintStatusLog() {
+        let log = """
+        >>> aaa 1000
+        diff --git a/s.yaml b/s.yaml
+        @@ -1,0 +1,3 @@
+        +development_status:
+        +  1-1-first: backlog
+        +  1-2-second: backlog
+        >>> bbb 700000
+        diff --git a/s.yaml b/s.yaml
+        @@ -2,1 +2,1 @@
+        -  1-1-first: backlog
+        +  1-1-first: done
+        @@ -4,0 +4,1 @@
+        +  1-3-third: backlog
+        """
+        let snaps = Burnup.replaySprintStatus(log)
+        #expect(snaps[0].events == [.init(storyID: "1-1-first", kind: .created("backlog")), .init(storyID: "1-2-second", kind: .created("backlog"))])
+        #expect(snaps[1].events == [.init(storyID: "1-1-first", kind: .status("done")), .init(storyID: "1-3-third", kind: .created("backlog"))])
+        let m = Burnup.milestones(snaps)
+        #expect(m.created["1-3-third"] == Date(timeIntervalSince1970: 700000))
+        #expect(m.done["1-1-first"] == Date(timeIntervalSince1970: 700000))
+        #expect(m.finishedPerWeek.values.reduce(0, +) == 1)
+    }
+
     @Test func replaysTicketTreeEntriesAndPlanStatuses() {
         let log = """
         >>> aaa 1000
@@ -201,7 +226,14 @@ private let v7 = Bundle.module.url(forResource: "Fixtures/ticket-tree", withExte
         -status: 'built'
         +status: done
         """
-        let snaps = Burnup.replayTicketTree(log, epicIDs: ["epic-x"])
+        let snaps = Burnup.replayTicketTree(log, epicIDs: ["epic-x"], planIDs: ["i/epic-x/story-a-plan.md": "epic-x/1"])
+        #expect(snaps[0].events.map(\.storyID) == ["epic-x/1", "epic-x/2"])
+        #expect(snaps[1].events == [.init(storyID: "epic-x/1", kind: .status("built"))])
+        #expect(snaps[2].events == [.init(storyID: "epic-x/1", kind: .status("done"))])
+        let m = Burnup.milestones(snaps)
+        #expect(m.built["epic-x/1"] == Date(timeIntervalSince1970: 2000))
+        #expect(m.done["epic-x/1"] == Date(timeIntervalSince1970: 3000))
+        #expect(m.finishedPerWeek.values.reduce(0, +) == 1) // built then done counts once
         #expect(snaps.map { $0.counts(epic: "epic-x") } == [
             Burnup.Counts(total: 2, done: 0, built: 0),
             Burnup.Counts(total: 2, done: 0, built: 1),

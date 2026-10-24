@@ -3,6 +3,7 @@ import BmadKit
 import Observation
 
 enum SidebarItem: Hashable {
+    case dashboard
     case queue
     case active
     case all
@@ -33,7 +34,7 @@ final class ProjectStore {
     private(set) var isLoading = false
     private(set) var lastLoaded: Date?
 
-    var sidebar: SidebarItem? = .queue
+    var sidebar: SidebarItem? = .dashboard
     var selectedStoryID: Story.ID? {
         didSet { if selectedStoryID != nil { epicDocsShown = nil } }
     }
@@ -122,7 +123,11 @@ final class ProjectStore {
     var graphEpic: String?
     var graphFocus: Story.ID?
     var burnupEpic: String?
-    private(set) var burnup: Result<[Burnup.Snapshot], Error>?
+    private(set) var burnup: Result<[Burnup.Snapshot], Error>? {
+        didSet { milestones = (try? burnup?.get()).map(Burnup.milestones) }
+    }
+    /// When stories were created, built and finished, from the same replay.
+    private(set) var milestones: Burnup.Milestones?
     @ObservationIgnored private var burnupFor: Date?
 
     /// Replays the history once per load, off the main thread.
@@ -201,6 +206,7 @@ final class ProjectStore {
         if let id = loc.epicDocs ?? { if case .epic(let e) = loc.sidebar { return e } else { return nil } }(),
            let epic = project?.epics.first(where: { $0.id == id }) { return epic.title }
         switch loc.sidebar {
+        case .dashboard: return "Dashboard"
         case .queue: return project?.layout == .ticketTree ? "Next" : "Build order"
         case .active: return "Active"
         case .all: return "All stories"
@@ -281,7 +287,7 @@ final class ProjectStore {
     }
 
     func open(_ url: URL) {
-        sidebar = .queue
+        sidebar = .dashboard
         selectedStoryID = nil
         load(url)
         var list = recents.map { $0.path(percentEncoded: false) }.filter { $0 != url.path(percentEncoded: false) }
@@ -449,7 +455,7 @@ final class ProjectStore {
         case .epic(let id): stories = project.epics.first { $0.id == id }?.stories ?? []
         case .active: stories = project.allStories.filter(\.status.isActive)
         case .all, .none: stories = project.allStories
-        case .queue, .document, .retroActions, .deferredWork, .humanRuns, .search, .graph, .burnup: stories = []
+        case .dashboard, .queue, .document, .retroActions, .deferredWork, .humanRuns, .search, .graph, .burnup: stories = []
         }
         if hideFinished, sidebar != .active { stories = stories.filter { !$0.status.isTerminal } }
         let q = search.trimmingCharacters(in: .whitespaces)

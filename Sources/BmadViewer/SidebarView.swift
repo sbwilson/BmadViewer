@@ -9,6 +9,8 @@ struct SidebarView: View {
         @Bindable var store = store
         List(selection: $store.sidebar) {
             Section {
+                Label("Dashboard", systemImage: "gauge.with.dots.needle.67percent")
+                    .tag(SidebarItem.dashboard)
                 if !project.queue.isEmpty {
                     row(project.layout == .ticketTree ? "Next" : "Build order", systemImage: "list.number",
                         count: project.layout == .ticketTree

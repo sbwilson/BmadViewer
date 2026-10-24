@@ -12,10 +12,22 @@ public enum Burnup {
         public var built = 0
     }
 
+    /// A story's change in one commit.
+    public struct Event: Hashable, Sendable {
+        public enum Kind: Hashable, Sendable {
+            /// It first appeared (with its first status, when there is one).
+            case created(String?)
+            case status(String)
+        }
+        public let storyID: String
+        public let kind: Kind
+    }
+
     public struct Snapshot: Hashable, Sendable {
         public let date: Date
         public let commit: String
         public let epics: [String: Counts]
+        public var events: [Event] = []
 
         public func counts(epic: String?) -> Counts {
             if let epic { return epics[epic] ?? Counts() }
@@ -37,7 +49,14 @@ public enum Burnup {
             let repo = try GitDiff.repositoryRoot(for: project.root)
             let text = try GitDiff.git(["log", "--reverse", "--no-color", "--first-parent", "-m", "--format=>>> %H %ct", "-p", "-U0", "--",
                                         GitDiff.relativePath(initiative, in: repo)], in: repo)
-            return replayTicketTree(text, epicIDs: Set(project.epics.map(\.id)))
+            // Plans by repository path, so a plan's status line names its story.
+            var planIDs: [String: String] = [:]
+            for story in project.allStories {
+                if let plan = story.documents.first(where: { $0.label == "Plan" })?.url {
+                    planIDs[GitDiff.relativePath(plan, in: repo)] = story.id
+                }
+            }
+            return replayTicketTree(text, epicIDs: Set(project.epics.map(\.id)), planIDs: planIDs)
         }
     }
 
@@ -71,7 +90,14 @@ public enum Burnup {
             flushHunk()
             guard let (hash, date) = commit else { return }
             for key in removed where added[key] == nil { statuses[key] = nil }
-            for (k, v) in added { statuses[k] = v }
+            var events: [Event] = []
+            for (k, v) in added.sorted(by: { $0.key < $1.key }) {
+                if case .story = SprintStatus.Key(k) {
+                    if statuses[k] == nil { events.append(Event(storyID: k, kind: .created(v))) }
+                    else if statuses[k] != v { events.append(Event(storyID: k, kind: .status(v))) }
+                }
+                statuses[k] = v
+            }
             var epics: [String: Counts] = [:]
             for (key, status) in statuses {
                 let epic: String?
@@ -85,7 +111,7 @@ public enum Burnup {
                 epics[e, default: Counts()].total += 1
                 if s.kind == .done { epics[e, default: Counts()].done += 1 }
             }
-            out.append(Snapshot(date: date, commit: hash, epics: epics))
+            out.append(Snapshot(date: date, commit: hash, epics: epics, events: events))
             added = [:]
             removed = []
         }
@@ -139,7 +165,8 @@ public enum Burnup {
 
     /// Scope from `id = N` lines in each epic's `tickets.toml` (`[[entry]]` tables);
     /// progress from `status:` lines in the plans beside them.
-    static func replayTicketTree(_ log: String, epicIDs: Set<String>) -> [Snapshot] {
+    static func replayTicketTree(_ log: String, epicIDs: Set<String>, planIDs: [String: String] = [:]) -> [Snapshot] {
+        var events: [Event] = []
         var entries: [String: Set<Int>] = [:]       // epic folder → entry ids
         var plans: [String: (epic: String, status: String)] = [:]
         var out: [Snapshot] = []
@@ -162,14 +189,20 @@ public enum Burnup {
                 default: break
                 }
             }
-            out.append(Snapshot(date: date, commit: hash, epics: epics))
+            out.append(Snapshot(date: date, commit: hash, epics: epics, events: events))
+            events = []
         }
 
         var pendingAdds: [String: Set<Int>] = [:]
         var pendingRemoves: [String: Set<Int>] = [:]
         func flushFile() {
             for (e, ids) in pendingRemoves { entries[e, default: []].subtract(ids.subtracting(pendingAdds[e] ?? [])) }
-            for (e, ids) in pendingAdds { entries[e, default: []].formUnion(ids) }
+            for (e, ids) in pendingAdds {
+                for id in ids.sorted() where !(entries[e]?.contains(id) ?? false) {
+                    events.append(Event(storyID: "\(e)/\(id)", kind: .created(nil)))
+                }
+                entries[e, default: []].formUnion(ids)
+            }
             pendingAdds = [:]
             pendingRemoves = [:]
         }
@@ -202,12 +235,56 @@ public enum Burnup {
                 if m.1 == "+" { pendingAdds[e, default: []].insert(id) } else { pendingRemoves[e, default: []].insert(id) }
             } else if path.hasSuffix("-plan.md") {
                 if let m = line.wholeMatch(of: /\+status:\s*['"]?([\w-]+)['"]?.*/) {
-                    plans[path] = (e, String(m.1))
+                    let status = String(m.1)
+                    if plans[path]?.status != status, let id = planIDs[path] {
+                        events.append(Event(storyID: id, kind: .status(status)))
+                    }
+                    plans[path] = (e, status)
                 }
             }
         }
         flushFile()
         close()
         return out
+    }
+}
+
+extension Burnup {
+    /// When each story first appeared, and when it last reached built and done.
+    public struct Milestones: Sendable {
+        public var created: [String: Date] = [:]
+        public var built: [String: Date] = [:]
+        public var done: [String: Date] = [:]
+        /// Stories reaching done (or, in a ticket tree, built-or-done for the first
+        /// time) per week, keyed by the week's Monday.
+        public var finishedPerWeek: [Date: Int] = [:]
+    }
+
+    public static func milestones(_ snapshots: [Snapshot]) -> Milestones {
+        var m = Milestones()
+        var finished = Set<String>()
+        var cal = Calendar(identifier: .iso8601)
+        cal.timeZone = .current
+        for snap in snapshots {
+            for event in snap.events {
+                let status: String?
+                switch event.kind {
+                case .created(let s):
+                    if m.created[event.storyID] == nil { m.created[event.storyID] = snap.date }
+                    status = s
+                case .status(let s):
+                    status = s
+                }
+                guard let status else { continue }
+                let kind = Status(status).kind
+                if kind == .built || kind == .review { m.built[event.storyID] = snap.date }
+                if kind == .done { m.done[event.storyID] = snap.date }
+                if kind == .done || kind == .built, finished.insert(event.storyID).inserted {
+                    let week = cal.dateInterval(of: .weekOfYear, for: snap.date)?.start ?? snap.date
+                    m.finishedPerWeek[week, default: 0] += 1
+                }
+            }
+        }
+        return m
     }
 }

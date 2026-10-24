@@ -255,6 +255,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         let totalNow = epic.stories.filter { $0.status.kind != .superseded }.count
                         if c.done != doneNow || c.total != totalNow { print("  epic \(epic.id): replay \(c.done)/\(c.total) now \(doneNow)/\(totalNow)") }
                     }
+                    let m = Burnup.milestones(history)
+                    let f2 = DateFormatter(); f2.dateFormat = "MM-dd"
+                    let recentDone = m.done.sorted { $0.value > $1.value }.prefix(4).compactMap { id, d in p.story(id: id).map { "\($0.number)@\(f2.string(from: d))" } }
+                    let recentNew = m.created.sorted { $0.value > $1.value }.prefix(4).compactMap { id, d in p.story(id: id).map { "\($0.number)@\(f2.string(from: d))" } }
+                    print("  milestones: created \(m.created.count), built \(m.built.count), done \(m.done.count) · recent done \(recentDone) · recent new \(recentNew) · weeks \(m.finishedPerWeek.count)")
                     print("  loader now: \(p.allStories.filter { $0.status.kind == .done }.count)/\(now.count) done, \(p.allStories.filter { $0.status.kind == .built }.count) built")
                 }
                 let counts = Dictionary(grouping: p.humanRuns, by: { $0.section ?? "" }).map { "\($0.key) \($0.value.count)" }.sorted().joined(separator: ", ")

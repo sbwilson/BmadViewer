@@ -63,6 +63,17 @@ A story with a recorded baseline (`baseline_commit` in a v6 spec, `baseline_revi
 - **Tabs:** ⌘W closes the selected file tab (with no file tabs open it closes the window; ⌘⇧W always closes the window). ⌘1–⌘8 pick a tab and ⌘9 the last, ⌘⇧] and ⌘⇧[ step to the next and previous tab.
 - **Back and forward:** ⌘[ and ⌘] (or the toolbar arrows) step through the stories, epics, items, lists and searches you have visited in the window. Quick changes, like arrowing down a list, are folded into one step. Review stops now step with ⌥⌘↑ and ⌥⌘↓.
 
+## Dashboard
+
+The first sidebar item, shown when a project opens.
+
+- **Cards** (middle column), each linking to its stories: **Up next** (the build-order queue's head, or a ticket tree's in-progress and ready tickets, plus anything active the queue does not list), **Awaiting review** (review and built), **Recently completed** and **Recently created**, with how long ago.
+- **Tiles:** percent complete, built awaiting done, active, in review, open deferred work (and how much is critical or high), open retro actions, human runs owed, and the longest remaining chain. Each opens its list.
+- **Charts:** completeness by status (a donut, in the badges' colours), throughput per week over the last 12 weeks with its average, the last 60 days of burn-up, and every epic's progress as a stacked bar (click a bar to open the epic).
+- **Health:** open deferred work by priority, stories gated by open entries, retro follow-through verdicts, owed human runs, story files that disagree with `sprint-status.yaml`, and loader warnings.
+
+Completion and creation dates come from the same git replay as the burn-up: each commit records which stories appeared and which changed status.
+
 ## Views
 
 - **Dependencies:** stories laid out in layers by what they come after, prerequisites on the left, scoped to all epics or one (prerequisites from other epics shown dashed), with finished stories optionally hidden. The **longest remaining chain** is drawn in the accent colour and listed; click a story to light up its links, double-click to open it; zoom in the toolbar. Ticket trees use their resolved `after`; sprint-status projects infer links from build-order's *Waits on* column and "Depends on / Queued after N.M" sentences in epics.md. (pangolin's chain matches `tickets.py status` exactly.)
