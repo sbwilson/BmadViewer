@@ -59,6 +59,7 @@ struct ProjectView: View {
                 switch store.sidebar {
                 case .queue: QueueView(project: project)
                 case .document(let url): DocumentDetailView(url: url, project: project)
+                case .search: SearchView(project: project)
                 case .retroActions: WorkItemListView(project: project, kind: .retroAction)
                 case .deferredWork: WorkItemListView(project: project, kind: .deferred)
                 default: StoryListView(project: project)
@@ -66,7 +67,14 @@ struct ProjectView: View {
             }
             .navigationSplitViewColumnWidth(min: 280, ideal: 360, max: 520)
         } detail: {
-            if store.sidebar?.workItemKind != nil {
+            if store.sidebar == .search {
+                if let hit = store.selectedSearchHit {
+                    SearchHitDetailView(hit: hit, project: project)
+                } else {
+                    ContentUnavailableView("No match selected", systemImage: "text.magnifyingglass",
+                                           description: Text("Choose a line to see it in its file."))
+                }
+            } else if store.sidebar?.workItemKind != nil {
                 if let item = store.selectedWorkItem {
                     WorkItemDetailView(item: item, project: project)
                 } else {

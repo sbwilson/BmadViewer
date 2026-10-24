@@ -197,6 +197,13 @@ struct WorkItemDetailView: View {
                         Text(severity).font(.caption.weight(.medium)).foregroundStyle(severityColor(severity))
                     }
                     Spacer()
+                    if item.kind == .deferred, item.label.hasPrefix("DW-") {
+                        Button { store.findReferences(item.label) } label: {
+                            Label("Find References", systemImage: "text.magnifyingglass")
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Everything in the BMAD artifacts that mentions \(item.label)")
+                    }
                 }
                 Text(inlineMarkdown(item.title))
                     .font(.title2.weight(.semibold))

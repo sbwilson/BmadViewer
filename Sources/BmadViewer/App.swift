@@ -32,6 +32,9 @@ struct BmadViewerApp: App {
                 Button("Quick Open… ") { store.showQuickOpen.toggle() }
                     .keyboardShortcut("o", modifiers: [.command, .shift])
                     .disabled(store.project == nil)
+                Button("Find in Project…") { store.showSearch() }
+                    .keyboardShortcut("f", modifiers: [.command, .shift])
+                    .disabled(store.project == nil)
             }
             CommandGroup(after: .toolbar) {
                 Button("Reload") { store.reload() }
@@ -127,6 +130,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     t = Date()
                     let results = QuickOpen.search(query, in: items)
                     print("  \"\(query)\" \(Int(Date().timeIntervalSince(t) * 1000)) ms: " + results.prefix(4).map { "\($0.item.kind.label) \($0.item.title.prefix(40))\($0.lines.map { " @\($0.lower)" } ?? "")" }.joined(separator: " | "))
+                }
+            }
+            if let q = ProcessInfo.processInfo.environment["BMADV_SEARCH"] {
+                for query in q.split(separator: "|").map(String.init) {
+                    for scope in TextSearch.Scope.allCases {
+                        let t = Date()
+                        let regex = query.contains("\\")
+                        let o = try TextSearch.run(query, options: .init(wholeWord: !regex, regex: regex, scope: scope), root: p.root, folders: TextSearch.artifactFolders(p))
+                        print("Search \"\(query)\" [\(scope.rawValue)] \(Int(Date().timeIntervalSince(t) * 1000)) ms: \(o.matchCount) matches in \(o.files.count) files\(o.truncated ? " (truncated)" : "") · " + o.files.prefix(3).map { "\($0.path.split(separator: "/").last!) ×\($0.matches.count)" }.joined(separator: ", "))
+                    }
                 }
             }
             for w in p.warnings { print("warning: \(w)") }

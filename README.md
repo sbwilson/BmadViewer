@@ -63,6 +63,14 @@ A story with a recorded baseline (`baseline_commit` in a v6 spec, `baseline_revi
 
 `BMADV_QUICKOPEN="9.16|core.rs:940" BmadViewer --dump <project>` prints the top results for each query.
 
+## Find in project
+
+**⌘⇧F** (or **Find in Project** in the sidebar) searches file contents: the **BMAD artifacts** folders by default, or the **whole project**, with match case, whole word and regular-expression toggles. Results group by file — a story's own document is labelled with its number — with every match on the line highlighted; a line in `deferred-work.md` shows which DW entry it belongs to. Selecting a match opens its file at that line, with links to the story or entry. It runs `git grep` (ignored and binary files skipped, untracked files included), stopping at 2,000 matches; outside git it walks the files. Qubric's artifacts search in about 0.1 s, the whole repository in about 0.3 s.
+
+**Find References** on a story or DW entry searches the artifacts for everything that mentions it; a story's search also matches its key spelling (`9.16` and `9-16-…`).
+
+`BMADV_SEARCH="DW-1041" BmadViewer --dump <project>` prints match counts and timings for both scopes.
+
 ## Retro actions and deferred work
 
 The sidebar's **Review** section lists what is owed that is not a story, with open counts.

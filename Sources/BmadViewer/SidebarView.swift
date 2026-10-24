@@ -20,6 +20,8 @@ struct SidebarView: View {
                     .tag(SidebarItem.active)
                 row("All stories", systemImage: "tray.full", count: project.allStories.count)
                     .tag(SidebarItem.all)
+                Label("Find in Project", systemImage: "text.magnifyingglass")
+                    .tag(SidebarItem.search)
             }
 
             if !project.retroActions.isEmpty || !project.deferredWork.isEmpty {

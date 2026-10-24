@@ -30,6 +30,11 @@ struct StoryDetailView: View {
                     Text("risk \(risk)").font(.caption).foregroundStyle(risk == "high" ? .orange : .secondary)
                 }
                 Spacer()
+                Button { store.findReferences(story.number) } label: {
+                    Label("Find References", systemImage: "text.magnifyingglass")
+                }
+                .buttonStyle(.borderless)
+                .help("Everything in the BMAD artifacts that mentions \(story.number)")
             }
             Text(story.title)
                 .font(.title2.weight(.semibold))

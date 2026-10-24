@@ -10,6 +10,7 @@ enum SidebarItem: Hashable {
     case document(URL)
     case retroActions
     case deferredWork
+    case search
 
     var workItemKind: WorkItem.Kind? {
         switch self {
@@ -37,6 +38,80 @@ final class ProjectStore {
     var workQueries: [String: WorkItemQuery] = [:] {
         didSet { if workQueries != oldValue { saveQueries() } }
     }
+    // MARK: Find in project
+
+    var searchQuery = "" { didSet { if searchQuery != oldValue { scheduleSearch() } } }
+    var searchOptions = TextSearch.Options() { didSet { if searchOptions != oldValue { scheduleSearch(now: true) } } }
+    private(set) var searchOutcome: Result<TextSearch.Outcome, Error>?
+    private(set) var searchDuration: TimeInterval = 0
+    private(set) var searching = false
+    var selectedSearchHit: String?
+    /// Bumped to move keyboard focus to the search field.
+    var focusSearch = 0
+    @ObservationIgnored private var searchTask: Task<Void, Never>?
+
+    func showSearch(_ query: String? = nil, wholeWord: Bool? = nil) {
+        sidebar = .search
+        if let wholeWord { searchOptions.wholeWord = wholeWord }
+        if let query { searchQuery = query }
+        focusSearch += 1
+    }
+
+    /// Everything in the BMAD artifacts that mentions a story or entry. A story
+    /// number also matches its key spelling: `9.16` finds `9-16-capture-…` too.
+    func findReferences(_ key: String) {
+        searchOptions.scope = .artifacts
+        if let m = key.wholeMatch(of: /(\d+)\.(\d+[a-z]?)/) {
+            searchOptions.regex = true
+            showSearch("\\b\(m.1)[.-]\(m.2)\\b", wholeWord: false)
+        } else {
+            searchOptions.regex = false
+            showSearch(key, wholeWord: true)
+        }
+    }
+
+    private func scheduleSearch(now: Bool = false) {
+        searchTask?.cancel()
+        let query = searchQuery
+        let options = searchOptions
+        guard let project, !query.trimmingCharacters(in: .whitespaces).isEmpty else {
+            searchOutcome = nil
+            searching = false
+            return
+        }
+        let root = project.root
+        let folders = TextSearch.artifactFolders(project)
+        searching = true
+        searchTask = Task {
+            if !now { try? await Task.sleep(for: .milliseconds(220)) }
+            guard !Task.isCancelled else { return }
+            let start = Date()
+            let result = await Task.detached(priority: .userInitiated) {
+                Result { try TextSearch.run(query, options: options, root: root, folders: folders) }
+            }.value
+            guard !Task.isCancelled else { return }
+            searchOutcome = result
+            searchDuration = Date().timeIntervalSince(start)
+            searching = false
+            if let hit = selectedSearchHit, case .success(let o) = result,
+               !o.files.contains(where: { f in f.matches.contains { "\(f.path)#\($0.line)" == hit } }) {
+                selectedSearchHit = nil
+            }
+        }
+    }
+
+    /// The story whose own document is `url`.
+    func story(documentedAt url: URL) -> Story? {
+        let file = url.standardizedFileURL
+        return project?.allStories.first { $0.files.contains { $0.standardizedFileURL == file } }
+    }
+
+    /// The deferred-work entry a line of the ledger belongs to.
+    func workItem(at url: URL, line: Int) -> WorkItem? {
+        guard let project, project.deferredWorkFile?.standardizedFileURL == url.standardizedFileURL else { return nil }
+        return project.deferredWork.filter { ($0.line ?? .max) <= line }.max { ($0.line ?? 0) < ($1.line ?? 0) }
+    }
+
     /// Everything ⌘K can jump to; files arrive a moment after the project loads.
     private(set) var quickOpenItems: [QuickOpenItem] = []
     var showQuickOpen = false
@@ -235,7 +310,7 @@ final class ProjectStore {
         case .epic(let id): stories = project.epics.first { $0.id == id }?.stories ?? []
         case .active: stories = project.allStories.filter(\.status.isActive)
         case .all, .none: stories = project.allStories
-        case .queue, .document, .retroActions, .deferredWork: stories = []
+        case .queue, .document, .retroActions, .deferredWork, .search: stories = []
         }
         if hideFinished, sidebar != .active { stories = stories.filter { !$0.status.isTerminal } }
         let q = search.trimmingCharacters(in: .whitespaces)
