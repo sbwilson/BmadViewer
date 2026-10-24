@@ -5,64 +5,156 @@ import SwiftUI
 @main
 struct BmadViewerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-    @State private var store = ProjectStore()
 
     var body: some Scene {
-        Window("BMAD Viewer", id: "main") {
-            ContentView()
-                .environment(store)
+        // One window per project; the window's value is the project's folder, so
+        // macOS reopens each project in its own window on the next launch.
+        WindowGroup("BMAD Viewer", id: "project", for: URL.self) { $root in
+            ProjectWindow(root: $root)
                 .frame(minWidth: 900, minHeight: 560)
-                .task { openInitialProject() }
         }
         .defaultSize(width: 1440, height: 900)
-        .commands {
-            CommandGroup(replacing: .newItem) {
-                Button("Open Project…") { store.showOpenPanel() }
-                    .keyboardShortcut("o")
-                Menu("Open Recent") {
-                    ForEach(store.recents, id: \.self) { url in
-                        Button(url.path(percentEncoded: false)) { store.open(url) }
-                    }
-                }
+        .commands { AppCommands() }
+    }
+}
+
+/// A window and the project it shows.
+struct ProjectWindow: View {
+    @Binding var root: URL?
+    @State private var store = ProjectStore()
+    @Environment(\.openWindow) private var openWindow
+
+    /// Only the first window of a launch falls back to the argument or the last project.
+    @MainActor static var openedInitial = false
+
+    var body: some View {
+        ContentView()
+            .environment(store)
+            .focusedSceneValue(\.projectStore, store)
+            .focusedSceneValue(\.openProject, OpenProjectAction { url in
+                if store.project == nil { store.open(url) } else { openWindow(value: url) }
+            })
+            .task { openInitial() }
+            .onChange(of: store.project?.root) { _, new in
+                if let new, new != root { root = new }
             }
-            CommandMenu("Go") {
-                Button("Quick Open…") { store.showQuickOpen.toggle() }
-                    .keyboardShortcut("k")
-                    .disabled(store.project == nil)
-                Button("Quick Open… ") { store.showQuickOpen.toggle() }
-                    .keyboardShortcut("o", modifiers: [.command, .shift])
-                    .disabled(store.project == nil)
-                Button("Find in Project…") { store.showSearch() }
-                    .keyboardShortcut("f", modifiers: [.command, .shift])
-                    .disabled(store.project == nil)
-            }
-            CommandGroup(after: .toolbar) {
-                Button("Reload") { store.reload() }
-                    .keyboardShortcut("r")
-                    .disabled(store.project == nil)
-            }
-            CommandGroup(after: .pasteboard) {
-                Divider()
-                Button("Find…") { DocumentFind.perform(.showFindInterface) }
-                    .keyboardShortcut("f")
-                Button("Find Next") { DocumentFind.perform(.nextMatch) }
-                    .keyboardShortcut("g")
-                Button("Find Previous") { DocumentFind.perform(.previousMatch) }
-                    .keyboardShortcut("g", modifiers: [.command, .shift])
+    }
+
+    /// A restored window reopens its project; a launch with none restores the path
+    /// argument (`BmadViewer ~/dev/Qubric`) or the most recent project.
+    private func openInitial() {
+        guard store.project == nil else { return }
+        if let root {
+            store.open(root)
+        } else if !Self.openedInitial {
+            Self.openedInitial = true
+            let args = CommandLine.arguments.dropFirst().filter { !$0.hasPrefix("-") }
+            if let path = args.first {
+                store.open(URL(filePath: NSString(string: path).expandingTildeInPath))
+            } else if let recent = store.recents.first {
+                store.open(recent)
             }
         }
     }
+}
 
-    /// A path argument wins (handy from a terminal: `BmadViewer ~/dev/Qubric`),
-    /// then the most recent project.
-    private func openInitialProject() {
-        guard store.project == nil else { return }
-        let args = CommandLine.arguments.dropFirst().filter { !$0.hasPrefix("-") }
-        if let path = args.first {
-            store.open(URL(filePath: NSString(string: path).expandingTildeInPath))
-        } else if let recent = store.recents.first {
-            store.open(recent)
+struct OpenProjectAction {
+    let open: @MainActor (URL) -> Void
+    @MainActor func callAsFunction(_ url: URL) { open(url) }
+}
+
+extension FocusedValues {
+    @Entry var projectStore: ProjectStore?
+    @Entry var openProject: OpenProjectAction?
+}
+
+/// The menus, acting on whichever project window is in front.
+struct AppCommands: Commands {
+    @FocusedValue(\.projectStore) private var store
+    @FocusedValue(\.openProject) private var openProject
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some Commands {
+        CommandGroup(replacing: .newItem) {
+            Button("Open Project…") { chooseProject() }
+                .keyboardShortcut("o")
+            Menu("Open Recent") {
+                ForEach(ProjectStore.recentProjects, id: \.self) { url in
+                    Button(url.path(percentEncoded: false)) { open(url) }
+                }
+            }
+            Button("New Window") { openWindow(id: "project") }
+                .keyboardShortcut("n")
         }
+        CommandGroup(replacing: .saveItem) {
+            Button("Close Tab") { closeTabOrWindow() }
+                .keyboardShortcut("w")
+            Button("Close Window") { NSApp.keyWindow?.performClose(nil) }
+                .keyboardShortcut("w", modifiers: [.command, .shift])
+        }
+        CommandMenu("Go") {
+            Button("Back") { store?.goBack() }
+                .keyboardShortcut("[")
+                .disabled(!(store?.canGoBack ?? false))
+            Button("Forward") { store?.goForward() }
+                .keyboardShortcut("]")
+                .disabled(!(store?.canGoForward ?? false))
+            Divider()
+            Button("Quick Open…") { store?.showQuickOpen.toggle() }
+                .keyboardShortcut("k")
+                .disabled(store?.project == nil)
+            Button("Quick Open… ") { store?.showQuickOpen.toggle() }
+                .keyboardShortcut("o", modifiers: [.command, .shift])
+                .disabled(store?.project == nil)
+            Button("Find in Project…") { store?.showSearch() }
+                .keyboardShortcut("f", modifiers: [.command, .shift])
+                .disabled(store?.project == nil)
+            Divider()
+            Button("Next Tab") { store?.selectAdjacentTab(1) }
+                .keyboardShortcut("]", modifiers: [.command, .shift])
+            Button("Previous Tab") { store?.selectAdjacentTab(-1) }
+                .keyboardShortcut("[", modifiers: [.command, .shift])
+            ForEach(1..<10) { n in
+                Button(n == 9 ? "Last Tab" : "Tab \(n)") { store?.selectTab(number: n) }
+                    .keyboardShortcut(KeyEquivalent(Character("\(n)")))
+            }
+        }
+        CommandGroup(after: .toolbar) {
+            Button("Reload") { store?.reload() }
+                .keyboardShortcut("r")
+                .disabled(store?.project == nil)
+        }
+        CommandGroup(after: .pasteboard) {
+            Divider()
+            Button("Find…") { DocumentFind.perform(.showFindInterface) }
+                .keyboardShortcut("f")
+            Button("Find Next") { DocumentFind.perform(.nextMatch) }
+                .keyboardShortcut("g")
+            Button("Find Previous") { DocumentFind.perform(.previousMatch) }
+                .keyboardShortcut("g", modifiers: [.command, .shift])
+        }
+    }
+
+    private func chooseProject() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.prompt = "Open Project"
+        panel.message = "Choose a folder containing a BMAD project"
+        if panel.runModal() == .OK, let url = panel.url { open(url) }
+    }
+
+    /// Into the front window when it is empty; otherwise its own window (an open
+    /// project's window comes to the front instead of opening twice).
+    private func open(_ url: URL) {
+        if let openProject { openProject(url) } else { openWindow(value: url) }
+    }
+
+    /// ⌘W closes the selected file tab; with no file tabs open it closes the window.
+    private func closeTabOrWindow() {
+        if store?.closeSelectedTab() == true { return }
+        if store?.hasOpenFileTabs == true { NSSound.beep(); return }
+        NSApp.keyWindow?.performClose(nil)
     }
 }
 

@@ -307,12 +307,12 @@ private struct ReviewItemDetail: View {
                 .fixedSize()
                 .disabled(change == nil)
                 Button { step(-1) } label: { Image(systemName: "chevron.up") }
-                    .keyboardShortcut("[", modifiers: .command)
-                    .help("Previous (⌘[)")
+                    .keyboardShortcut(.upArrow, modifiers: [.command, .option])
+                    .help("Previous (⌥⌘↑)")
                     .disabled(position == 1)
                 Button { step(1) } label: { Image(systemName: "chevron.down") }
-                    .keyboardShortcut("]", modifiers: .command)
-                    .help("Next (⌘])")
+                    .keyboardShortcut(.downArrow, modifiers: [.command, .option])
+                    .help("Next (⌥⌘↓)")
                     .disabled(position == count)
             }
             .buttonStyle(.borderless)

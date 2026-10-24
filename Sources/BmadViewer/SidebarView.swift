@@ -70,6 +70,8 @@ struct SidebarView: View {
         }
         .listStyle(.sidebar)
         .onChange(of: store.sidebar) { _, item in
+            // Back and forward set the whole location themselves.
+            guard !store.restoringHistory else { return }
             store.epicDocsShown = nil
             if case .queue = item { return }
             if let kind = item?.workItemKind {

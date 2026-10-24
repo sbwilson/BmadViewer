@@ -51,11 +51,17 @@ A story with a recorded baseline (`baseline_commit` in a v6 spec, `baseline_revi
 
 - **Range bar:** the git range being reviewed, from the baseline to, by default, **the story's last commit**: the last commit to touch the story document (its own commit), or the working tree when that document has uncommitted changes. HEAD and the working tree are the alternatives. It shows the file count and lines added and removed.
 - **Left:** the review order's concerns and their stops, then **Other changed files**: what the range changed that no stop names (or every changed file, for a story with no review order). Stops whose file the range did not touch are marked unchanged.
-- **Right:** the selected item as a **Diff** of the range, with old and new line numbers, added and removed lines banded across the width, syntax colours, and the stop's lines highlighted and scrolled to (the diff widens to the whole file when the lines fall outside the changed hunks). Since the range ends at the story's own commit, the review's line numbers match. **File** shows the file as it is today. ⌘[ and ⌘] step through.
+- **Right:** the selected item as a **Diff** of the range, with old and new line numbers, added and removed lines banded across the width, syntax colours, and the stop's lines highlighted and scrolled to (the diff widens to the whole file when the lines fall outside the changed hunks). Since the range ends at the story's own commit, the review's line numbers match. **File** shows the file as it is today. ⌥⌘↑ and ⌥⌘↓ step through.
 - A link to a file that has since moved (`RustCore/crates/…` → `crates/…`) is diffed at the path it had in the story's range, and shown from where it lives now in File view; a file that is gone says so.
 - **Below** (sprint-status projects): for a story in `review`, **Mark Review Complete…** lists the exact lines it will change — the story's `development_status` line in `sprint-status.yaml` (`review` → `done`, comments kept) and the story file's front-matter `status:` — and asks before writing them. Nothing is committed. A story still in `build-order.md`'s queue is left alone: going done there also drops its row and lowers the check's floor in one commit (rule R2), so that stays a hand edit.
 
 `BMADV_DIFF=17.5 BmadViewer --dump <project>` prints a story's range and whether each stop's lines appear in its diff.
+
+## Windows, tabs and history
+
+- **One window per project.** **Open Project…** (⌘O) and **Open Recent** open a project in its own window, or bring its window to the front if it is already open; an empty window takes the project in place. **New Window** (⌘N) opens an empty one. Each window keeps its own selection, tabs and history, and macOS reopens every project's window on the next launch.
+- **Tabs:** ⌘W closes the selected file tab (with no file tabs open it closes the window; ⌘⇧W always closes the window). ⌘1–⌘8 pick a tab and ⌘9 the last, ⌘⇧] and ⌘⇧[ step to the next and previous tab.
+- **Back and forward:** ⌘[ and ⌘] (or the toolbar arrows) step through the stories, epics, items, lists and searches you have visited in the window. Quick changes, like arrowing down a list, are folded into one step. Review stops now step with ⌥⌘↑ and ⌥⌘↓.
 
 ## Quick open
 

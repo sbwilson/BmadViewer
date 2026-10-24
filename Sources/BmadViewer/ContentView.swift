@@ -93,6 +93,7 @@ struct ProjectView: View {
         }
         .navigationTitle(project.name)
         .navigationSubtitle(subtitle)
+        .onChange(of: store.location, initial: true) { _, loc in store.record(loc) }
         .overlay(alignment: .top) {
             if store.showQuickOpen {
                 ZStack(alignment: .top) {
@@ -105,6 +106,14 @@ struct ProjectView: View {
         }
         .searchable(text: $store.search, placement: .sidebar, prompt: "Number or title")
         .toolbar {
+            ToolbarItemGroup(placement: .navigation) {
+                Button { store.goBack() } label: { Label("Back", systemImage: "chevron.left") }
+                    .disabled(!store.canGoBack)
+                    .help(store.canGoBack ? "Back to \(store.describe(store.history[store.historyIndex - 1])) (⌘[)" : "Back (⌘[)")
+                Button { store.goForward() } label: { Label("Forward", systemImage: "chevron.right") }
+                    .disabled(!store.canGoForward)
+                    .help(store.canGoForward ? "Forward to \(store.describe(store.history[store.historyIndex + 1])) (⌘])" : "Forward (⌘])")
+            }
             ToolbarItemGroup {
                 Toggle(isOn: $store.hideFinished) {
                     Label("Hide finished", systemImage: "line.3.horizontal.decrease.circle")

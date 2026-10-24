@@ -112,6 +112,116 @@ final class ProjectStore {
         return project.deferredWork.filter { ($0.line ?? .max) <= line }.max { ($0.line ?? 0) < ($1.line ?? 0) }
     }
 
+    // MARK: History
+
+    /// Where the window is: what back and forward step between.
+    struct Location: Hashable {
+        var sidebar: SidebarItem?
+        var story: Story.ID?
+        var workItem: WorkItem.ID?
+        var epicDocs: String?
+    }
+
+    var location: Location {
+        Location(sidebar: sidebar, story: selectedStoryID, workItem: selectedWorkItemID, epicDocs: epicDocsShown)
+    }
+
+    private(set) var history: [Location] = []
+    private(set) var historyIndex = -1
+    /// True while back/forward applies a location, so it is not recorded again.
+    private(set) var restoringHistory = false
+    @ObservationIgnored private var lastRecorded = Date.distantPast
+
+    var canGoBack: Bool { historyIndex > 0 }
+    var canGoForward: Bool { historyIndex < history.count - 1 }
+
+    /// Called when the location changes. Rapid changes (arrowing down a list)
+    /// replace the newest entry instead of piling up.
+    func record(_ location: Location) {
+        guard !restoringHistory else { return }
+        if historyIndex >= 0, history[historyIndex] == location { return }
+        if historyIndex < history.count - 1 { history.removeSubrange((historyIndex + 1)...) }
+        let now = Date()
+        if historyIndex >= 0, now.timeIntervalSince(lastRecorded) < 0.6, history[historyIndex].sidebar == location.sidebar {
+            history[historyIndex] = location
+        } else {
+            history.append(location)
+            if history.count > 100 { history.removeFirst() }
+            historyIndex = history.count - 1
+        }
+        lastRecorded = now
+    }
+
+    func goBack() { go(to: historyIndex - 1) }
+    func goForward() { go(to: historyIndex + 1) }
+
+    private func go(to index: Int) {
+        guard history.indices.contains(index) else { return }
+        historyIndex = index
+        let loc = history[index]
+        restoringHistory = true
+        sidebar = loc.sidebar
+        selectedWorkItemID = loc.workItem
+        selectedStoryID = loc.story
+        epicDocsShown = loc.epicDocs
+        lastRecorded = .distantPast
+        // The sidebar's own reaction to the change runs after this; hold off until then.
+        DispatchQueue.main.async { self.restoringHistory = false }
+    }
+
+    func describe(_ loc: Location) -> String {
+        if let id = loc.story, let s = project?.story(id: id) { return "Story \(s.number): \(s.title)" }
+        if let id = loc.workItem, let i = (project?.deferredWork ?? []).first(where: { $0.id == id }) ?? (project?.retroActions ?? []).first(where: { $0.id == id }) {
+            return "\(i.label): \(i.title)"
+        }
+        if let id = loc.epicDocs ?? { if case .epic(let e) = loc.sidebar { return e } else { return nil } }(),
+           let epic = project?.epics.first(where: { $0.id == id }) { return epic.title }
+        switch loc.sidebar {
+        case .queue: return project?.layout == .ticketTree ? "Next" : "Build order"
+        case .active: return "Active"
+        case .all: return "All stories"
+        case .search: return "Find in Project"
+        case .retroActions: return "Retro actions"
+        case .deferredWork: return "Deferred work"
+        case .document(let url): return url.lastPathComponent
+        default: return "—"
+        }
+    }
+
+    // MARK: Tab commands
+
+    /// The tabs on screen and the selected one.
+    private func currentTabs() -> (context: String, fixed: [DocTab], tabs: [DocTab], selected: Int)? {
+        guard let (context, fixed) = currentTabContext() else { return nil }
+        let s = session(context)
+        let tabs = fixed + s.opened.map(DocTab.file)
+        let selected = tabs.firstIndex { $0.id == s.selected } ?? 0
+        return (context, fixed, tabs, selected)
+    }
+
+    /// ⌘1…⌘8 pick that tab; ⌘9 the last, as in a browser.
+    func selectTab(number: Int) {
+        guard let t = currentTabs(), !t.tabs.isEmpty else { return }
+        let i = number == 9 ? t.tabs.count - 1 : number - 1
+        guard t.tabs.indices.contains(i) else { NSSound.beep(); return }
+        selectTab(t.tabs[i].id, context: t.context)
+    }
+
+    func selectAdjacentTab(_ delta: Int) {
+        guard let t = currentTabs(), t.tabs.count > 1 else { return }
+        let i = (t.selected + delta + t.tabs.count) % t.tabs.count
+        selectTab(t.tabs[i].id, context: t.context)
+    }
+
+    /// Closes the selected tab when it is a file tab; false for a fixed one.
+    func closeSelectedTab() -> Bool {
+        guard let t = currentTabs(), t.tabs.indices.contains(t.selected), t.tabs[t.selected].closable else { return false }
+        closeTab(t.tabs[t.selected].id, context: t.context, fixed: t.fixed)
+        return true
+    }
+
+    var hasOpenFileTabs: Bool { currentTabs().map { $0.tabs.contains(where: \.closable) } ?? false }
+
     /// Everything ⌘K can jump to; files arrive a moment after the project loads.
     private(set) var quickOpenItems: [QuickOpenItem] = []
     var showQuickOpen = false
@@ -137,8 +247,10 @@ final class ProjectStore {
 
     static let recentsKey = "recentProjects"
 
-    var recents: [URL] {
-        (UserDefaults.standard.stringArray(forKey: Self.recentsKey) ?? []).map { URL(filePath: $0) }
+    var recents: [URL] { Self.recentProjects }
+
+    static var recentProjects: [URL] {
+        (UserDefaults.standard.stringArray(forKey: recentsKey) ?? []).map { URL(filePath: $0) }
     }
 
     func open(_ url: URL) {
