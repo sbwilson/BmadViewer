@@ -70,8 +70,9 @@ struct SidebarView: View {
         .onChange(of: store.sidebar) { _, item in
             store.epicDocsShown = nil
             if case .queue = item { return }
-            if item?.workItemKind != nil {
-                store.selectedWorkItemID = nil
+            if let kind = item?.workItemKind {
+                let list = kind == .deferred ? project.deferredWork : project.retroActions
+                if let id = store.selectedWorkItemID, !list.contains(where: { $0.id == id }) { store.selectedWorkItemID = nil }
                 return
             }
             if let id = store.selectedStoryID, !store.visibleStories.contains(where: { $0.id == id }) {

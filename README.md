@@ -57,6 +57,12 @@ A story with a recorded baseline (`baseline_commit` in a v6 spec, `baseline_revi
 
 `BMADV_DIFF=17.5 BmadViewer --dump <project>` prints a story's range and whether each stop's lines appear in its diff.
 
+## Quick open
+
+**⌘K** (or ⌘⇧O, under **Go**) jumps to anything by fuzzy match: stories and tickets (by number or title words), epics, retro actions, deferred entries (`DW-1041`), project documents, and every file git tracks (or would track) in the project. An exact key — `9.16`, `DW-12` — comes first. `core.rs:940` opens the file at that line. ↩ opens: a story or item in its list, a file in the tabs of the story or item on screen (or on its own in the middle column); ⌘↩ opens it in its default app. With nothing typed it lists recent picks and active stories. Indexing Qubric (about 8,000 items, 6,800 files) takes under 100 ms and a search about 25 ms.
+
+`BMADV_QUICKOPEN="9.16|core.rs:940" BmadViewer --dump <project>` prints the top results for each query.
+
 ## Retro actions and deferred work
 
 The sidebar's **Review** section lists what is owed that is not a story, with open counts.

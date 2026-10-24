@@ -85,6 +85,16 @@ struct ProjectView: View {
         }
         .navigationTitle(project.name)
         .navigationSubtitle(subtitle)
+        .overlay(alignment: .top) {
+            if store.showQuickOpen {
+                ZStack(alignment: .top) {
+                    Color.black.opacity(0.12)
+                        .ignoresSafeArea()
+                        .onTapGesture { store.showQuickOpen = false }
+                    QuickOpenPanel().padding(.top, 70)
+                }
+            }
+        }
         .searchable(text: $store.search, placement: .sidebar, prompt: "Number or title")
         .toolbar {
             ToolbarItemGroup {

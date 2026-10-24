@@ -25,6 +25,14 @@ struct BmadViewerApp: App {
                     }
                 }
             }
+            CommandMenu("Go") {
+                Button("Quick Open…") { store.showQuickOpen.toggle() }
+                    .keyboardShortcut("k")
+                    .disabled(store.project == nil)
+                Button("Quick Open… ") { store.showQuickOpen.toggle() }
+                    .keyboardShortcut("o", modifiers: [.command, .shift])
+                    .disabled(store.project == nil)
+            }
             CommandGroup(after: .toolbar) {
                 Button("Reload") { store.reload() }
                     .keyboardShortcut("r")
@@ -109,6 +117,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 let named = Set((story.review?.stops ?? []).flatMap { s in [s.url, s.movedFrom.map { p.root.appending(path: $0) }].compactMap { $0 }.map { GitDiff.relativePath($0, in: range.repository) } })
                 print("  other changed files: \(files.filter { !named.contains($0.path) }.map(\.path).joined(separator: ", "))")
+            }
+            if let q = ProcessInfo.processInfo.environment["BMADV_QUICKOPEN"] {
+                var t = Date()
+                let files = QuickOpen.listFiles(root: p.root)
+                let items = QuickOpen.items(for: p, files: files)
+                print("Quick open: \(items.count) items (\(files.count) files) indexed in \(Int(Date().timeIntervalSince(t) * 1000)) ms")
+                for query in q.split(separator: "|").map(String.init) {
+                    t = Date()
+                    let results = QuickOpen.search(query, in: items)
+                    print("  \"\(query)\" \(Int(Date().timeIntervalSince(t) * 1000)) ms: " + results.prefix(4).map { "\($0.item.kind.label) \($0.item.title.prefix(40))\($0.lines.map { " @\($0.lower)" } ?? "")" }.joined(separator: " | "))
+                }
             }
             for w in p.warnings { print("warning: \(w)") }
             exit(0)

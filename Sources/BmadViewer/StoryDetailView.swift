@@ -132,11 +132,13 @@ struct MarkdownTextView: View {
 
 /// A project document (build-order.md, epics.md, sprint-status.yaml) in the middle column.
 struct DocumentDetailView: View {
+    @Environment(ProjectStore.self) private var store
     let url: URL
     let project: Project
 
     var body: some View {
-        FileViewer(url: url, lines: nil, project: project)
+        FileViewer(url: url, lines: store.documentLines[url], project: project)
+            .id("\(url.path(percentEncoded: false))#\(store.documentLines[url]?.fragment ?? "")")
             .navigationTitle(url.lastPathComponent)
     }
 }

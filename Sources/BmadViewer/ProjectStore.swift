@@ -37,6 +37,13 @@ final class ProjectStore {
     var workQueries: [String: WorkItemQuery] = [:] {
         didSet { if workQueries != oldValue { saveQueries() } }
     }
+    /// Everything ⌘K can jump to; files arrive a moment after the project loads.
+    private(set) var quickOpenItems: [QuickOpenItem] = []
+    var showQuickOpen = false
+    /// Quick-open picks, most recent first.
+    var quickOpenRecent: [String] = []
+    /// Lines to show when a project document opens from quick open.
+    var documentLines: [URL: LineRange] = [:]
     /// The selected stop or changed file in each story's review pane.
     var reviewSelection: [Story.ID: String] = [:]
     /// Where each story's review range ends.
@@ -104,6 +111,7 @@ final class ProjectStore {
                     loadTabs(p.root)
                     loadQueries(p.root)
                 }
+                indexQuickOpen(p, fresh: rewatch)
             case .failure(let e):
                 error = e.localizedDescription
                 if project?.root != root { project = nil }
@@ -124,6 +132,61 @@ final class ProjectStore {
             var s = s
             s.opened = s.opened.filter { FileManager.default.fileExists(atPath: $0.path) }
             return s
+        }
+    }
+
+    /// Stories and work items at once; files once git has listed them.
+    private func indexQuickOpen(_ p: Project, fresh: Bool) {
+        if fresh || quickOpenItems.isEmpty { quickOpenItems = QuickOpen.items(for: p, files: []) }
+        Task {
+            let items = await Task.detached(priority: .utility) {
+                QuickOpen.items(for: p, files: QuickOpen.listFiles(root: p.root))
+            }.value
+            if project?.root == p.root { quickOpenItems = items }
+        }
+    }
+
+    /// The tabbed detail view on screen, if any: where a file from quick open goes.
+    func currentTabContext() -> (context: String, fixed: [DocTab])? {
+        if let kind = sidebar?.workItemKind, let item = selectedWorkItem {
+            return ("work:\(kind.rawValue):\(item.id)", DocTab.workItemTabs(item))
+        }
+        if let story = selectedStory { return ("story:\(story.id)", DocTab.storyTabs(story)) }
+        if let id = epicDocsShown, let epic = project?.epics.first(where: { $0.id == id }) {
+            return ("epic:\(epic.id)", DocTab.epicTabs(epic))
+        }
+        return nil
+    }
+
+    func open(_ result: QuickOpen.Result, external: Bool = false) {
+        showQuickOpen = false
+        quickOpenRecent.removeAll { $0 == result.item.id }
+        quickOpenRecent.insert(result.item.id, at: 0)
+        if quickOpenRecent.count > 12 { quickOpenRecent.removeLast() }
+        switch result.item.target {
+        case .story(let id):
+            guard let story = project?.story(id: id) else { return }
+            if external, let file = story.primaryFile { FileActions.open(file); return }
+            select(storyNumber: story.number)
+            selectedStoryID = id
+        case .epic(let id):
+            selectedStoryID = nil
+            sidebar = .epic(id)
+        case .workItem(let kind, let id):
+            sidebar = kind == .deferred ? .deferredWork : .retroActions
+            selectedWorkItemID = id
+        case .document(let url):
+            if external { FileActions.open(url); return }
+            documentLines[url] = result.lines
+            sidebar = .document(url)
+        case .file(let url):
+            if external { FileActions.open(url); return }
+            if let (context, fixed) = currentTabContext() {
+                openDocument(url, lines: result.lines, context: context, fixed: fixed)
+            } else {
+                documentLines[url] = result.lines
+                sidebar = .document(url)
+            }
         }
     }
 
