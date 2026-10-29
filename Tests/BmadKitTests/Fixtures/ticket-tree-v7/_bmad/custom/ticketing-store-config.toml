@@ -1,0 +1,3 @@
+[tickets]
+store = "repo"
+root = "{output_folder}"

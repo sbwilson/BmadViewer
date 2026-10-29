@@ -29,19 +29,23 @@ Archived copies (`archive/`, worktrees, build output) are skipped when searching
 
 ## What it reads (BMAD v7 ticket tree)
 
-Used when `modules.bmm.active_initiative` is set (e.g. `_bmad/custom/config.user.toml`), or when there is no `sprint-status.yaml` but an `initiative-*` folder exists. The rules follow the project's own `_bmad/method/scripts/tickets.py`.
+Used when `modules.bmm.active_initiative` is set (e.g. `_bmad/custom/config.user.toml`), or when there is no `sprint-status.yaml` but an `initiative-*` folder exists. The rules follow the project's own `_bmad/method/scripts/tickets.py`. Each container keeps its own file at the top and its `tickets.toml`, epic folders, leaf files and plans under a `tickets/` subfolder; trees written in the earlier layout — the tickets beside the container's file, as in the script's first release — still read.
 
 | Source | Used for |
 | --- | --- |
-| `<store root>/<initiative>/tickets.toml` `[[epic]]` | epic order, ids (story numbers are `<epic id>.<entry id>`) and titles |
-| `<initiative>/epic-<slug>/tickets.toml` `[[entry]]` | tickets in build order: type, title, description, verify, `after`, risk, refine |
-| `story-*.md` / `spike-*.md` / `bug-*.md` | a pulled ticket; joins its entry by `id`, its `title` and `after` win |
-| `*-plan.md` with `ticket:` | the ticket's `status` (draft … built, done, blocked, dropped) and its build record |
+| `<initiative>/tickets/tickets.toml` `[[epic]]` | epic order, ids (story numbers are `<epic id>.<entry id>`) and titles |
+| `<initiative>/tickets/epic-<slug>/tickets/tickets.toml` `[[entry]]` | tickets in build order: type, title, description, verify, `after`, risk, estimate, refine |
+| `story-*.md` / `spike-*.md` / `bug-*.md` | a pulled ticket; joins its entry by `id` (`"6"` and `6` are one id), its `title` and `after` win |
+| `*-plan.md` with `ticket:` | the ticket's `status` (draft … built, done, blocked, dropped) and its build record; a plan whose `ticket` names nothing is skipped with a warning, an unknown status reads as blocked |
+| `spike-*-findings.md` with `spike:` | a spike's findings, as its fourth tab |
+| `<initiative>/deferred-work.md` | the deferred-work ledger (older trees: the implementation artifacts folder) |
 | `<store root>/backlog/` | tickets in no epic |
 
-The store root is `[tickets] root` in `_bmad/custom/ticketing-store-config.toml` (default: the output folder). **Next** groups tickets the way `tickets.py next` does: in progress, built (awaiting done), ready to start, ready to refine, blocked. A built ticket meets an `after`; an epic gate waits for the epic to be done.
+An `id` is a whole number or letters and digits. `after` names a sibling by bare id or file name, another epic's entry as `"<epic id>.<entry id>"`, a whole epic as `"epic-<slug>"`, or a tracker id. A parent initiative — a `tickets.toml` of `[[initiative]]` tables — says which children to open.
 
-A ticket shows three views: **Ticket** (its `tickets.toml` entry as text), **Story file**, and **Plan**.
+The store root is `[tickets] root` in `_bmad/custom/ticketing-store-config.toml` (default: the output folder). **Next** groups tickets the way `tickets.py next` does: in progress, built (awaiting done), ready to start, ready to refine (an unrefined bug always refines), blocked — which includes a ticket whose `unknown` still has an answer owed. A built ticket meets an `after`; an epic gate waits for the epic to be done.
+
+A ticket shows up to four views: **Ticket** (its `tickets.toml` entry as text), **Story file**, **Plan**, and **Findings**.
 
 `BmadViewer --dump <project>` prints what was read and exits, for comparing with `tickets.py next`.
 

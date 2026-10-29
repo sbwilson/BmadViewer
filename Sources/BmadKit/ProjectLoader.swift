@@ -14,7 +14,7 @@ public enum ProjectLoader {
     }
 
     public static func load(root: URL) throws -> Project {
-        let root = root.standardizedFileURL
+        let root = projectDirectory(for: root.standardizedFileURL)
         let paths = ConfigResolver.resolve(root: root)
         var warnings: [String] = []
 
@@ -187,6 +187,22 @@ public enum ProjectLoader {
             level = next
         }
         return nil
+    }
+
+    /// Opening a single file — a double-clicked story, or a window restored to the
+    /// document it last showed — opens the project containing it: the nearest
+    /// ancestor holding `_bmad-output` or `_bmad`, else the file's own folder.
+    static func projectDirectory(for url: URL) -> URL {
+        let isDirectory = (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? true
+        if isDirectory { return url }
+        let parent = url.deletingLastPathComponent()
+        var candidate = parent
+        while candidate.pathComponents.count > 1 {
+            if existing(candidate.appending(path: "_bmad-output")) != nil
+                || existing(candidate.appending(path: "_bmad")) != nil { return candidate }
+            candidate = candidate.deletingLastPathComponent()
+        }
+        return parent
     }
 
     static func existing(_ url: URL) -> URL? {

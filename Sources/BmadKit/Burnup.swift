@@ -49,11 +49,13 @@ public enum Burnup {
             let repo = try GitDiff.repositoryRoot(for: project.root)
             let text = try GitDiff.git(["log", "--reverse", "--no-color", "--first-parent", "-m", "--format=>>> %H %ct", "-p", "-U0", "--",
                                         GitDiff.relativePath(initiative, in: repo)], in: repo)
-            // Plans by repository path, so a plan's status line names its story.
+            // Plans by repository path, so a plan's status line names its story — and by
+            // epic plus file name, which a plan keeps when the tree moves under it.
             var planIDs: [String: String] = [:]
             for story in project.allStories {
                 if let plan = story.documents.first(where: { $0.label == "Plan" })?.url {
                     planIDs[GitDiff.relativePath(plan, in: repo)] = story.id
+                    planIDs["\(story.epicID)/\(plan.lastPathComponent)"] = story.id
                 }
             }
             return replayTicketTree(text, epicIDs: Set(project.epics.map(\.id)), planIDs: planIDs)
@@ -236,7 +238,8 @@ public enum Burnup {
             } else if path.hasSuffix("-plan.md") {
                 if let m = line.wholeMatch(of: /\+status:\s*['"]?([\w-]+)['"]?.*/) {
                     let status = String(m.1)
-                    if plans[path]?.status != status, let id = planIDs[path] {
+                    let name = path.split(separator: "/").last.map { "\(e)/\($0)" }
+                    if plans[path]?.status != status, let id = planIDs[path] ?? name.flatMap({ planIDs[$0] }) {
                         events.append(Event(storyID: id, kind: .status(status)))
                     }
                     plans[path] = (e, status)

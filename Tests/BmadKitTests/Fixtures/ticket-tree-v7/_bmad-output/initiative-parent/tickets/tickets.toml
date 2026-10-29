@@ -1,0 +1,6 @@
+# tickets.toml — the parent's children.
+
+[[initiative]]
+id = 1
+slug = "initiative-v7"
+title = "Money v2: our finances, again"

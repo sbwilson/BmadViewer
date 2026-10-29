@@ -1,5 +1,6 @@
 .build/
 build/
 .swiftpm/
+.serena/
 *.xcodeproj/xcuserdata/
 .DS_Store

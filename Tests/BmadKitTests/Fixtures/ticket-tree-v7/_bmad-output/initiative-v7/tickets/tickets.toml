@@ -1,0 +1,13 @@
+# tickets.toml — the initiative's epics. Table order is build order.
+
+[[epic]]
+id = 2
+slug = "epic-alpha"
+title = "Alpha core"
+
+[[epic]]
+id = 12
+slug = "epic-beta"
+title = "Beta surface"
+after = [{ epic = 2, needs = "alpha's API" }]
+next_id = 40

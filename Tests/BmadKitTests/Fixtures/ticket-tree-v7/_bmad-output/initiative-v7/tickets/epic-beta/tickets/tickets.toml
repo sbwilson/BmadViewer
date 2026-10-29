@@ -1,0 +1,24 @@
+# tickets.toml — epic-beta's agreed children.
+
+[[entry]]
+id = 1
+type = "story"
+title = "Screen"
+description = "Shows the list."
+verify = "Renders."
+after = ["2.2"]
+
+[[entry]]
+id = "b1"
+type = "bug"
+title = "Crash on launch"
+description = "White screen on cold start."
+verify = "Stays up."
+
+[[entry]]
+id = 3
+type = "story"
+title = "Whole epic"
+description = "Needs all of alpha."
+verify = "Green."
+after = ["epic-alpha"]

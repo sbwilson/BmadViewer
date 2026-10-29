@@ -76,7 +76,7 @@ import Testing
     @Test func readsAnEpicsEntriesAndAnInitiativesEpics() throws {
         let root = Bundle.module.url(forResource: "Fixtures/ticket-tree", withExtension: nil)!
         let epic = try TicketsFile.load(root.appending(path: "_bmad-output/initiative-money/epic-workspace/tickets.toml"))
-        #expect(epic.entries.map(\.id) == [1, 2, 3, 4])
+        #expect(epic.entries.map { "\($0.id)" } == ["1", "2", "3", "4"])
         #expect(epic.entries[1].after == ["1", "2.1"])
         #expect(epic.entries[2].type == "spike")
         #expect(epic.entries[2].refine)

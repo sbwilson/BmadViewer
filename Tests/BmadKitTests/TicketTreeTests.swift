@@ -4,8 +4,9 @@ import Testing
 
 private let fixture = Bundle.module.url(forResource: "Fixtures/ticket-tree", withExtension: nil)!
 
-/// The fixture follows pangolin's layout: `tickets.toml` directly in the initiative
-/// and epic folders, status in `*-plan.md` beside the entry, a sibling `backlog/`.
+/// The fixture follows the early v7 layout — before `tickets.py` moved each container's
+/// tickets under `tickets/`: `tickets.toml` directly in the initiative and epic folders,
+/// status in `*-plan.md` beside the entry, a sibling `backlog/`. `ticket-tree-v7` is the current one.
 @Suite struct TicketTreeTests {
     let project: Project
 

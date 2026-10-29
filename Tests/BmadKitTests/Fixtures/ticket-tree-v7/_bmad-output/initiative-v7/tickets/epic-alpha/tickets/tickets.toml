@@ -1,0 +1,49 @@
+# tickets.toml — epic-alpha's agreed children. Table order is build order.
+
+next_id = 7
+
+[[entry]]
+id = 1
+type = "story"
+title = "Foundation"
+description = "The base."
+verify = "It stands."
+covers = ["CAP-1"]
+estimate = "M"
+
+[[entry]]
+id = 2
+type = "story"
+title = "The list, planned"
+description = "Entry's description."
+verify = "Paging works."
+
+[[entry]]
+id = 3
+type = "spike"
+title = "Which parser"
+description = "Decide FTS5 or not."
+verify = "A written decision."
+refine = true
+
+[[entry]]
+id = 4
+type = "story"
+title = "Half-built"
+description = "Its plan carries a status nobody knows."
+verify = "Green."
+
+[[entry]]
+id = 5
+type = "story"
+title = "Answer owed"
+description = "Refined, dependencies met, an unknown outstanding."
+verify = "Green."
+unknown = "Which port to bind."
+
+[[entry]]
+id = 6
+type = "bug"
+title = "Totals drift after an import"
+description = "The summary line disagrees with the rows."
+verify = "They match."

@@ -37,10 +37,11 @@ struct TicketsTomlView: View {
         }
     }
 
-    /// The epic this file belongs to: the folder it sits in.
+    /// The epic this file belongs to: the folder it sits in, or the one holding `tickets/`.
     private var epicNumber: String? {
-        let folder = url.deletingLastPathComponent().lastPathComponent
-        return project.epics.first { $0.id == folder }?.number
+        var folder = url.deletingLastPathComponent()
+        if folder.lastPathComponent == "tickets" { folder = folder.deletingLastPathComponent() }
+        return project.epics.first { $0.id == folder.lastPathComponent }?.number
     }
 }
 
@@ -113,10 +114,10 @@ private struct EntryTomlRow: View {
         .padding(.vertical, 10)
     }
 
-    /// A bare integer is a sibling: it takes this epic's number.
+    /// A bare id is a sibling: it takes this epic's number.
     private func resolve(_ ref: String) -> String? {
-        if let n = Int(ref) { return epicNumber.map { "\($0).\(n)" } }
-        if ref.wholeMatch(of: /\d+\.\d+/) != nil { return ref }
+        if ref.wholeMatch(of: /[0-9A-Za-z]+/) != nil { return epicNumber.map { "\($0).\(ref)" } }
+        if ref.wholeMatch(of: /[0-9A-Za-z]+\.[0-9A-Za-z]+/) != nil { return ref }
         return nil
     }
 
