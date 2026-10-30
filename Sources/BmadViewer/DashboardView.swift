@@ -2,7 +2,7 @@ import BmadKit
 import Charts
 import SwiftUI
 
-// MARK: Cards (middle column)
+// MARK: Cards (detail column)
 
 /// What to look at next: up next, awaiting review, recently completed, recently created.
 struct DashboardCardsView: View {
@@ -100,7 +100,7 @@ struct DashboardCardsView: View {
     }
 }
 
-// MARK: Overview (detail column)
+// MARK: Overview (middle column)
 
 /// Tiles, completeness, epic progress, throughput, recent burn-up and project health.
 struct DashboardView: View {

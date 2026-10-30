@@ -102,7 +102,7 @@ struct ProjectView: View {
                 switch store.sidebar {
                 case .queue: QueueView(project: project)
                 case .document(let url): DocumentDetailView(url: url, project: project)
-                case .dashboard: DashboardCardsView(project: project)
+                case .dashboard: DashboardView(project: project)
                 case .search: SearchView(project: project)
                 case .graph: GraphControlsView(project: project)
                 case .burnup: BurnupControlsView(project: project)
@@ -112,10 +112,16 @@ struct ProjectView: View {
                 default: StoryListView(project: project)
                 }
             }
-            .navigationSplitViewColumnWidth(min: 280, ideal: 360, max: 520)
+            // The dashboard's overview wants more width than a list does; the
+            // cards that sit beside it in the detail column want less.
+            .navigationSplitViewColumnWidth(
+                min: store.sidebar == .dashboard ? 480 : 280,
+                ideal: store.sidebar == .dashboard ? 640 : 360,
+                max: store.sidebar == .dashboard ? 900 : 520)
         } detail: {
             if store.sidebar == .dashboard {
-                DashboardView(project: project)
+                DashboardCardsView(project: project)
+                    .navigationSplitViewColumnWidth(min: 280, ideal: 360, max: 480)
             } else if store.sidebar == .graph {
                 DependencyGraphView(project: project)
             } else if store.sidebar == .burnup {
