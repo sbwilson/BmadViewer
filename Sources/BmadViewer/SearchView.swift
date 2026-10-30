@@ -40,7 +40,6 @@ struct SearchView: View {
             Divider()
             results
         }
-        .navigationTitle("Find in Project")
         .onAppear { focused = true }
         .onChange(of: store.focusSearch) { focused = true }
     }

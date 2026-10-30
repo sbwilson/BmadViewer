@@ -1,3 +1,4 @@
+import AppKit
 import BmadKit
 import SwiftUI
 
@@ -5,11 +6,53 @@ struct ContentView: View {
     @Environment(ProjectStore.self) private var store
 
     var body: some View {
-        if let project = store.project {
-            ProjectView(project: project)
-        } else {
-            WelcomeView()
+        Group {
+            if let project = store.project {
+                ProjectView(project: project)
+            } else {
+                WelcomeView()
+            }
         }
+        // No view carries a `navigationTitle`: in a split view one takes the window
+        // title for itself, which is why the project name never showed. The window
+        // is titled here — the project prominent, the place within it as subtitle.
+        .background(WindowTitle(title: windowTitle, subtitle: windowSubtitle))
+    }
+
+    private var windowTitle: String { store.project?.name ?? "BMAD Viewer" }
+
+    /// Where in the project, in the same words back and forward use; the dashboard
+    /// keeps the progress the title bar's subtitle used to carry.
+    private var windowSubtitle: String {
+        guard let project = store.project else { return "" }
+        let where_ = store.describe(store.location)
+        guard case .dashboard? = store.sidebar else { return where_ }
+        let done = project.allStories.filter(\.status.isTerminal).count
+        return "\(where_) · \(done)/\(project.allStories.count) finished"
+    }
+}
+
+/// Writes the window's title and subtitle, which SwiftUI won't take from the
+/// content while the `WindowGroup` carries its own title.
+private struct WindowTitle: NSViewRepresentable {
+    let title: String
+    let subtitle: String
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: .zero)
+        // The view has no window until it joins the hierarchy.
+        DispatchQueue.main.async { [weak view] in apply(to: view?.window) }
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        apply(to: view.window)
+    }
+
+    private func apply(to window: NSWindow?) {
+        guard let window, window.title != title || window.subtitle != subtitle else { return }
+        window.title = title
+        window.subtitle = subtitle
     }
 }
 
@@ -101,8 +144,6 @@ struct ProjectView: View {
                                        description: Text("Choose a story to read its document."))
             }
         }
-        .navigationTitle(project.name)
-        .navigationSubtitle(subtitle)
         .onChange(of: store.location, initial: true) { _, loc in store.record(loc) }
         .overlay(alignment: .top) {
             if store.showQuickOpen {
@@ -135,11 +176,5 @@ struct ProjectView: View {
                     .help(project.root.path(percentEncoded: false))
             }
         }
-    }
-
-    private var subtitle: String {
-        let stories = project.allStories
-        let done = stories.filter(\.status.isTerminal).count
-        return "\(done)/\(stories.count) finished · \(project.layout.rawValue)"
     }
 }

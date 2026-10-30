@@ -333,6 +333,5 @@ struct EpicDocumentsView: View {
             .padding(.top, 14)
             .padding(.bottom, 10)
         }
-        .navigationTitle(epic.title)
     }
 }

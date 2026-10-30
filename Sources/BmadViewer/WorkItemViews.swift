@@ -83,8 +83,6 @@ struct WorkItemListView: View {
                 }
             }
         }
-        .navigationTitle(kind.rawValue)
-        .navigationSubtitle("\(shown) of \(all.count)")
         .toolbar {
             ToolbarItemGroup {
                 sortMenu(query)
@@ -276,7 +274,6 @@ struct WorkItemDetailView: View {
             .padding(.top, 14)
             .padding(.bottom, 10)
         }
-        .navigationTitle(item.label)
     }
 }
 

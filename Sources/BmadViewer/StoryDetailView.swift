@@ -10,7 +10,6 @@ struct StoryDetailView: View {
         TabbedDocumentsView(context: "story:\(story.id)", fixed: DocTab.storyTabs(story), project: project) {
             header
         }
-        .navigationTitle("Story \(story.number)")
     }
 
     private var header: some View {

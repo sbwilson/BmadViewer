@@ -112,7 +112,6 @@ struct StoryListView: View {
                 ContentUnavailableView(store.search.isEmpty ? "No stories" : "No matches", systemImage: "tray")
             }
         }
-        .navigationTitle(title)
     }
 
     private func docLabel(_ url: URL, epic: Epic) -> String {
@@ -122,13 +121,6 @@ struct StoryListView: View {
         return url.lastPathComponent
     }
 
-    private var title: String {
-        switch store.sidebar {
-        case .epic(let id): project.epics.first { $0.id == id }?.title ?? "Epic"
-        case .active: "Active"
-        default: "All stories"
-        }
-    }
 }
 
 struct QueueView: View {
@@ -154,7 +146,6 @@ struct QueueView: View {
                 }
             }
         }
-        .navigationTitle(project.layout == .ticketTree ? "Next" : "Build order")
         .toolbar {
             if let url = project.sources.buildOrderFile {
                 ToolbarItem {
