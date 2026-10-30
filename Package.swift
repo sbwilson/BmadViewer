@@ -25,7 +25,9 @@ let package = Package(
             dependencies: [
                 "BmadKit",
                 .product(name: "Markdown", package: "swift-markdown"),
-            ]
+            ],
+            // The icon source: scripts/make-app.sh turns it into the bundle's .icns.
+            exclude: ["icon.png"]
         ),
         .testTarget(
             name: "BmadKitTests",
