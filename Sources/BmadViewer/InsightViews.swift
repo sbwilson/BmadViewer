@@ -12,6 +12,8 @@ struct GraphControlsView: View {
     var body: some View {
         @Bindable var store = store
         let graph = DependencyGraph.build(project, epic: store.graphEpic, hideFinished: store.hideFinished)
+        let chainEffort = Effort.summary(graph.longestChain.compactMap { project.story(id: $0) })
+        let heavyEffort = Effort.summary(graph.heaviestChain.compactMap { project.story(id: $0) })
         List {
             Section {
                 Picker("Scope", selection: $store.graphEpic) {
@@ -29,25 +31,19 @@ struct GraphControlsView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
-            Section("Longest remaining chain (\(graph.longestChain.count))") {
+            Section("Longest remaining chain (\(graph.longestChain.count)\(chainEffort.pointsLabel.map { " · \($0)" } ?? ""))") {
                 if graph.longestChain.isEmpty {
                     Text("Nothing left waiting on anything.").foregroundStyle(.secondary)
                 }
-                ForEach(Array(graph.longestChain.enumerated()), id: \.element) { i, id in
-                    if let story = project.story(id: id) {
-                        Button {
-                            store.graphFocus = id
-                        } label: {
-                            HStack(spacing: 6) {
-                                Text("\(i + 1)").font(.caption.monospacedDigit()).foregroundStyle(.tertiary).frame(width: 20, alignment: .trailing)
-                                Text(story.number).font(.callout.monospacedDigit().weight(.semibold))
-                                Text(story.title).lineLimit(1)
-                                Spacer(minLength: 4)
-                                StatusBadge(status: story.status)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                    }
+                chainRows(graph.longestChain)
+            }
+            if !graph.heaviestChain.isEmpty {
+                Section {
+                    chainRows(graph.heaviestChain)
+                    Text("The remaining chain whose estimates weigh the most; a ticket without a bare number weighs nothing here.")
+                        .font(.caption).foregroundStyle(.secondary)
+                } header: {
+                    Text("Heaviest remaining chain (\(graph.heaviestChain.count)\(heavyEffort.pointsLabel.map { " · \($0)" } ?? ""))")
                 }
             }
             Section("Legend") {
@@ -56,7 +52,30 @@ struct GraphControlsView: View {
                 Label("Click to highlight a story's links; double-click to open it", systemImage: "cursorarrow.click.2").font(.caption)
             }
         }
-        .navigationTitle("Dependencies")
+    }
+
+    /// One numbered row per story in a chain, its estimate before the badge.
+    @ViewBuilder private func chainRows(_ ids: [Story.ID]) -> some View {
+        ForEach(Array(ids.enumerated()), id: \.element) { i, id in
+            if let story = project.story(id: id) {
+                Button {
+                    store.graphFocus = id
+                } label: {
+                    HStack(spacing: 6) {
+                        Text("\(i + 1)").font(.caption.monospacedDigit()).foregroundStyle(.tertiary).frame(width: 20, alignment: .trailing)
+                        Text(story.number).font(.callout.monospacedDigit().weight(.semibold))
+                        Text(story.title).lineLimit(1)
+                        Spacer(minLength: 4)
+                        if let estimate = story.estimate {
+                            Text(estimate).font(.caption.monospacedDigit()).foregroundStyle(.tertiary)
+                                .help("estimate \(estimate)")
+                        }
+                        StatusBadge(status: story.status)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 }
 
@@ -140,7 +159,6 @@ struct DependencyGraphView: View {
                     Button { zoom = 1 } label: { Label("Actual Size", systemImage: "1.magnifyingglass") }
                 }
             }
-            .navigationTitle("Dependencies")
         }
     }
 
@@ -162,6 +180,10 @@ private struct GraphNodeView: View {
             HStack(spacing: 5) {
                 Circle().fill(node.status.color).frame(width: 7, height: 7)
                 Text(node.number).font(.caption.monospacedDigit().weight(.bold))
+                if let estimate = node.estimate {
+                    Text(estimate).font(.system(size: 9, design: .rounded).monospacedDigit()).foregroundStyle(.tertiary)
+                        .help("estimate \(estimate)")
+                }
                 Spacer(minLength: 0)
                 Text(node.status.raw).font(.system(size: 9)).foregroundStyle(.secondary)
             }
@@ -179,7 +201,7 @@ private struct GraphNodeView: View {
             }
         }
         .opacity(faded ? 0.3 : node.external ? 0.7 : 1)
-        .help("\(node.number): \(node.title)")
+        .help("\(node.number): \(node.title)\(node.estimate.map { " · estimate \($0)" } ?? "")")
     }
 }
 
@@ -201,7 +223,6 @@ struct BurnupControlsView: View {
                     total: epic.stories.filter { $0.status.kind != .superseded }.count)
             }
         }
-        .navigationTitle("Burn-up")
     }
 
     private func row(_ id: String?, title: String, done: Int, total: Int) -> some View {
@@ -240,7 +261,6 @@ struct BurnupChartView: View {
                 chart(daily(snapshots))
             }
         }
-        .navigationTitle("Burn-up")
         .task(id: store.lastLoaded) { store.loadBurnupIfNeeded() }
     }
 

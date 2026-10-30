@@ -50,6 +50,72 @@ private let v7 = Bundle.module.url(forResource: "Fixtures/ticket-tree", withExte
     }
 }
 
+@Suite struct EffortTests {
+    @Test func onlyBareNumbersWeighInPoints() {
+        #expect(Effort.points("3") == 3)
+        #expect(Effort.points(" 2.5 ") == 2.5)
+        #expect(Effort.points("0") == 0)
+        #expect(Effort.points("M") == nil)
+        #expect(Effort.points("2h") == nil)
+        #expect(Effort.points("") == nil)
+        #expect(Effort.points(nil) == nil)
+    }
+
+    @Test func summariesSumNumbersCountTheRest() {
+        func story(_ id: String, _ estimate: String?) -> Story {
+            var s = Story(id: id, number: id, epicID: "e", title: id, status: Status("backlog"))
+            s.estimate = estimate
+            return s
+        }
+        let mixed = Effort.summary([story("a", "3"), story("b", "2.5"), story("c", "M"), story("d", nil)])
+        #expect(mixed.points == 5.5)
+        #expect(mixed.counted == 2)
+        #expect(mixed.uncounted == 1)
+        #expect(mixed.total == 4)
+        #expect(mixed.pointsLabel == "5.5 pts")
+        #expect(mixed.coverage == "2 of 4 estimated · 1 written estimate")
+        #expect(Effort.summary([story("a", "4"), story("b", "4")]).pointsLabel == "8 pts")
+        let none = Effort.summary([story("a", nil)])
+        #expect(none.pointsLabel == nil)
+        #expect(none.coverage == nil)
+        let words = Effort.summary([story("a", "M"), story("b", "L")])
+        #expect(words.pointsLabel == nil)
+        #expect(words.coverage == "0 of 2 estimated · 2 written estimates")
+    }
+
+    /// Estimates come from the `tickets.toml` entry (a float loads); the longest
+    /// chain stays the longest, while the heaviest path takes the 9-point spike.
+    @Test func estimatesSumAndTheHeaviestChainBeatsTheLongestOne() throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: "bmadviewer-effort-\(UUID().uuidString)")
+        try FileManager.default.copyItem(at: v7, to: root)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let toml = root.appending(path: "_bmad-output/initiative-money/epic-workspace/tickets.toml")
+        let text = try String(contentsOf: toml, encoding: .utf8)
+            .replacingOccurrences(of: "title = \"Web stack\"", with: "title = \"Web stack\"\nestimate = 1.5")
+            .replacingOccurrences(of: "title = \"Transaction list\"", with: "title = \"Transaction list\"\nestimate = \"M\"")
+            .replacingOccurrences(of: "title = \"Search engine choice\"", with: "title = \"Search engine choice\"\nestimate = 9")
+            .replacingOccurrences(of: "title = \"Sweep\"", with: "title = \"Sweep\"\nestimate = 5")
+        try text.write(to: toml, atomically: true, encoding: .utf8)
+
+        let p = try ProjectLoader.load(root: root)
+        #expect(p.story(number: "12.1")?.estimate == "1.5")
+        #expect(p.story(number: "12.2")?.estimate == "M")
+        #expect(p.story(number: "12.3")?.estimate == "9")
+
+        let remaining = p.allStories.filter { !$0.status.isTerminal }
+        let s = Effort.summary(remaining)
+        #expect(s.points == 15.5)
+        #expect(s.counted == 3)
+        #expect(s.uncounted == 1)
+        #expect(s.total == remaining.count)
+
+        let g = DependencyGraph.build(p, epic: nil, hideFinished: false)
+        // The four-ticket chain stays longest even though it only weighs 6.5.
+        #expect(g.longestChain.compactMap { p.story(id: $0)?.number } == ["2.2", "12.1", "12.2", "12.4"])
+        #expect(g.heaviestChain.compactMap { p.story(id: $0)?.number } == ["12.3", "12.4"])
+    }
+}
+
 @Suite struct FollowThroughTests {
     @Test func keysAreNumbersOrActionIds() {
         #expect(FollowThroughReader.cleanKey("**#9** — *\"Fix `sprint_status.py`\"*") == "9")

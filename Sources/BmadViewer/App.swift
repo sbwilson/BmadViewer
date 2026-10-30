@@ -174,6 +174,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             for s in p.queue {
                 print("\(s.heading): \(s.entries.map(\.storyNumber).joined(separator: " "))")
             }
+            let effort = Effort.summary(p.allStories.filter { !$0.status.isTerminal })
+            if effort.counted > 0 {
+                print("Effort: \(effort.pointsLabel ?? "?") over \(effort.counted) of \(effort.total) remaining (\(effort.uncounted) written, not numbered)")
+                let g = DependencyGraph.build(p, epic: nil, hideFinished: false)
+                let chainPts = Effort.summary(g.longestChain.compactMap { p.story(id: $0) }).pointsLabel
+                let heaviest = g.heaviestChain.isEmpty ? "the same" : g.heaviestChain.compactMap { p.story(id: $0)?.number }.joined(separator: " → ")
+                print("  longest chain: \(g.longestChain.count) tickets\(chainPts.map { " · \($0)" } ?? "") · heaviest: \(heaviest)")
+            }
             for (name, items) in [("Retro actions", p.retroActions), ("Deferred work", p.deferredWork)] {
                 let counts = Dictionary(grouping: items, by: \.status.raw).mapValues(\.count)
                     .sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }.joined(separator: ", ")

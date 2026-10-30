@@ -48,6 +48,7 @@ public struct DependencyGraph: Sendable {
         public let title: String
         public let epicID: String
         public let status: Status
+        public let estimate: String?
         /// Pulled in from outside the chosen epic because something inside depends on it.
         public let external: Bool
         public var layer = 0
@@ -65,6 +66,9 @@ public struct DependencyGraph: Sendable {
     /// Prerequisite first: the longest run of not-yet-finished stories, each waiting
     /// on the one before.
     public let longestChain: [Story.ID]
+    /// The remaining path whose counted estimates weigh the most; empty when nothing
+    /// remaining has a number, or when it is the longest chain's own tickets.
+    public let heaviestChain: [Story.ID]
 
     public var layers: Int { (nodes.map(\.layer).max() ?? -1) + 1 }
     public var rows: Int { (nodes.map(\.row).max() ?? -1) + 1 }
@@ -101,11 +105,14 @@ public struct DependencyGraph: Sendable {
             for (r, id) in ids.sorted(by: { (order[$0] ?? 0) < (order[$1] ?? 0) }).enumerated() {
                 guard let s = byID[id] else { continue }
                 nodes.append(Node(id: id, number: s.number, title: s.title, epicID: s.epicID, status: s.status,
-                                  external: external.contains(id), layer: l, row: r))
+                                  estimate: s.estimate, external: external.contains(id), layer: l, row: r))
             }
         }
         nodes.sort { ($0.layer, $0.row) < ($1.layer, $1.row) }
-        return DependencyGraph(nodes: nodes, edges: edges, longestChain: longestChain(included, deps: deps, byID: byID))
+        let heaviest = heaviestChain(included, deps: deps, byID: byID)
+        let longest = longestChain(included, deps: deps, byID: byID)
+        return DependencyGraph(nodes: nodes, edges: edges, longestChain: longest,
+                               heaviestChain: heaviest == longest ? [] : heaviest)
     }
 
     /// Mirrors `tickets.py`'s longest remaining chain: over unfinished stories only.
@@ -121,6 +128,73 @@ public struct DependencyGraph: Sendable {
             return c
         }
         return remaining.sorted().map { chain($0, []) }.max { $0.count < $1.count } ?? []
+    }
+
+    /// Of the remaining paths, the one whose counted estimates weigh the most: what the
+    /// work still to do costs where estimates exist. A ticket without a bare number
+    /// weighs nothing, so the path must hold at least one counted estimate to appear.
+    static func heaviestChain(_ ids: Set<Story.ID>, deps: [Story.ID: [Story.ID]], byID: [Story.ID: Story]) -> [Story.ID] {
+        let remaining = ids.filter { !(byID[$0]?.status.isTerminal ?? true) }
+        func points(_ id: Story.ID) -> Double { Effort.points(byID[id]?.estimate) ?? 0 }
+        func weight(_ chain: [Story.ID]) -> (Double, Int) { (chain.reduce(0) { $0 + points($1) }, chain.count) }
+        var memo: [Story.ID: [Story.ID]] = [:]
+        func chain(_ id: Story.ID, _ visiting: Set<Story.ID>) -> [Story.ID] {
+            if let c = memo[id] { return c }
+            let best = (deps[id] ?? []).filter { remaining.contains($0) && !visiting.contains($0) }
+                .map { chain($0, visiting.union([id])) }
+                .max { weight($0) < weight($1) } ?? []
+            let c = best + [id]
+            memo[id] = c
+            return c
+        }
+        let top = remaining.sorted().map { chain($0, []) }.max { weight($0) < weight($1) } ?? []
+        return weight(top).0 > 0 ? top : []
+    }
+}
+
+// MARK: Effort
+
+/// What the tickets' `estimate`s come to. Only bare numbers — `3`, `1.5` — sum as
+/// points; a written estimate (`M`, `2h`) counts toward coverage without being summed,
+/// because mixing hours into points would be inventing a number.
+public enum Effort {
+    public struct Summary: Sendable, Equatable {
+        /// The sum of the bare-number estimates; nil when there were none.
+        public let points: Double?
+        /// The stories whose estimate summed.
+        public let counted: Int
+        /// The stories with an estimate that is not a bare number.
+        public let uncounted: Int
+        /// The stories this summarizes.
+        public let total: Int
+
+        /// `21 pts` or `6.5 pts`; nil when nothing summed.
+        public var pointsLabel: String? { points.map { "\(Self.number($0)) pts" } }
+        /// `3 of 12 estimated · 1 written estimate`; nil when nothing carries an estimate.
+        public var coverage: String? {
+            guard counted > 0 || uncounted > 0 else { return nil }
+            var s = "\(counted) of \(total) estimated"
+            if uncounted > 0 { s += " · \(uncounted) written estimate\(uncounted == 1 ? "" : "s")" }
+            return s
+        }
+
+        static func number(_ d: Double) -> String { d == d.rounded() ? String(Int(d)) : String(d) }
+    }
+
+    /// The bare number an estimate is, if it is one.
+    public static func points(_ estimate: String?) -> Double? {
+        guard let estimate = estimate?.trimmingCharacters(in: .whitespaces), !estimate.isEmpty else { return nil }
+        return Double(estimate)
+    }
+
+    public static func summary(_ stories: some Sequence<Story>) -> Summary {
+        var sum = 0.0, counted = 0, uncounted = 0, total = 0
+        for s in stories {
+            total += 1
+            guard let estimate = s.estimate, !estimate.isEmpty else { continue }
+            if let p = points(estimate) { sum += p; counted += 1 } else { uncounted += 1 }
+        }
+        return Summary(points: counted > 0 ? sum : nil, counted: counted, uncounted: uncounted, total: total)
     }
 }
 

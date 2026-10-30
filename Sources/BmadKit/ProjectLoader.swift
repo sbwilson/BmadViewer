@@ -77,6 +77,7 @@ public enum ProjectLoader {
                     if let text = try? String(contentsOf: doc, encoding: .utf8) {
                         story.review = ReviewOrder.parse(text, document: doc, projectRoot: root)
                         story.frontMatter = FrontMatter.split(text).fields
+                        story.estimate = story.frontMatter["estimate"].flatMap { $0.isEmpty ? nil : $0 }
                         if epicsDoc?.storyTitles[number] == nil, let t = story.frontMatter["title"] {
                             story.title = stripStoryPrefix(t)
                         }

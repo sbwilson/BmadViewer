@@ -29,7 +29,6 @@ struct DashboardCardsView: View {
             }
             .padding(12)
         }
-        .navigationTitle("Dashboard")
         .task(id: store.lastLoaded) { store.loadBurnupIfNeeded() }
     }
 
@@ -116,7 +115,11 @@ struct DashboardView: View {
         let percent = inScope.isEmpty ? 0 : Int((Double(done) / Double(inScope.count) * 100).rounded())
         let openDW = project.deferredWork.filter { !$0.status.isTerminal }
         let urgentDW = openDW.filter { $0.priority == .critical || $0.priority == .high }
-        let chain = DependencyGraph.build(project, epic: nil, hideFinished: false).longestChain
+        let graph = DependencyGraph.build(project, epic: nil, hideFinished: false)
+        let chain = graph.longestChain
+        let heavy = graph.heaviestChain
+        let effort = Effort.summary(stories.filter { !$0.status.isTerminal })
+        let heavyEffort = Effort.summary(heavy.compactMap { project.story(id: $0) })
 
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
@@ -140,6 +143,15 @@ struct DashboardView: View {
                         Tile(value: "\(project.humanRuns.filter { !$0.status.isTerminal }.count)", label: "human runs owed", detail: nil, color: .secondary, target: .humanRuns)
                     }
                     Tile(value: "\(chain.count)", label: "longest remaining chain", detail: chain.first.flatMap { project.story(id: $0)?.number }.map { "starts at \($0)" }, color: .secondary, target: .graph)
+                    if let points = effort.pointsLabel {
+                        Tile(value: points, label: "effort remaining", detail: effort.coverage, color: .secondary, target: .all)
+                            .help("The sum of the tickets' numeric estimates over the stories still open")
+                    }
+                    if !heavy.isEmpty, let points = heavyEffort.pointsLabel {
+                        let start = heavy.first.flatMap { project.story(id: $0)?.number }.map { " · starts at \($0)" } ?? ""
+                        Tile(value: points, label: "heaviest remaining chain", detail: "\(heavy.count) tickets\(start)", color: .secondary, target: .graph)
+                            .help("The remaining chain whose estimates weigh the most")
+                    }
                 }
 
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 380), spacing: 14, alignment: .top)], spacing: 14) {
@@ -153,7 +165,6 @@ struct DashboardView: View {
             }
             .padding(20)
         }
-        .navigationTitle("Dashboard")
         .task(id: store.lastLoaded) { store.loadBurnupIfNeeded() }
     }
 

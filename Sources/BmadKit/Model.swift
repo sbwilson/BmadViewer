@@ -88,6 +88,9 @@ public struct Story: Identifiable, Hashable, Sendable {
     /// Prerequisites not yet met, as display numbers or epic names.
     public var waitsOn: [String] = []
     public var risk: String?
+    /// The ticket's `estimate` as written: `3`, `1.5`, `M`. From the `tickets.toml`
+    /// entry or front matter; only bare numbers are summed, see `Effort`.
+    public var estimate: String?
     /// The story document's Suggested Review Order, when it has one.
     public var review: ReviewOrder?
     /// Stories this one comes after (ids). Resolved `after` in a ticket tree; inferred

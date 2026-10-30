@@ -80,18 +80,23 @@ public enum TicketTree {
         var needs: String?
     }
 
+    /// A written value that is a whole number, a float (an `estimate = 1.5`) or a string.
     enum Ref: Decodable, Hashable, CustomStringConvertible {
         case int(Int)
+        case double(Double)
         case string(String)
 
         init(from decoder: any Decoder) throws {
             let c = try decoder.singleValueContainer()
-            if let i = try? c.decode(Int.self) { self = .int(i) } else { self = .string(try c.decode(String.self)) }
+            if let i = try? c.decode(Int.self) { self = .int(i) }
+            else if let d = try? c.decode(Double.self) { self = .double(d) }
+            else { self = .string(try c.decode(String.self)) }
         }
 
         var description: String {
             switch self {
             case .int(let i): "\(i)"
+            case .double(let d): d == d.rounded() ? String(Int(d)) : String(d)
             case .string(let s): s
             }
         }
@@ -303,6 +308,8 @@ public enum TicketTree {
             var s = Story(id: r.key, number: r.number, epicID: r.epicSlug, title: r.title, status: Status(statusWord))
             s.type = r.type
             s.risk = r.entry?.risk ?? (r.leafFields["risk"] as? String)
+            s.estimate = (r.entry?.estimate.map(\.description) ?? (r.leafFields["estimate"] as? String))
+                .flatMap { $0.isEmpty ? nil : $0 }
             s.dependsOn = r.after.filter { byKey[$0] != nil }
             s.dependsOnEpics = r.after.filter { byKey[$0] == nil } + r.gatedBy
             s.hitl = r.entry?.hitl == true || r.leafFields["hitl"] as? Bool == true
@@ -498,6 +505,11 @@ public enum TicketTree {
                 switch ref {
                 case .int(let n):
                     key = keys.contains("\(r.epicSlug)/\(n)") ? "\(r.epicSlug)/\(n)" : nil
+                case .double(let d):
+                    // A float can only be a whole-number id written badly.
+                    if let n = Int(exactly: d) {
+                        key = keys.contains("\(r.epicSlug)/\(n)") ? "\(r.epicSlug)/\(n)" : nil
+                    }
                 case .string(let s):
                     let siblings = rows.filter { $0.epicSlug == r.epicSlug }
                     // A sibling's string id, then a sibling's file name.

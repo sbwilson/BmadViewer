@@ -78,6 +78,7 @@ private struct EntryTomlRow: View {
                 Spacer(minLength: 8)
                 if let story { StatusBadge(status: story.status) }
                 if let risk = entry.risk { Text("risk \(risk)").font(.caption).foregroundStyle(risk == "high" ? .orange : .secondary) }
+                if let estimate = entry.estimate { Text("est \(estimate)").font(.caption).foregroundStyle(.secondary) }
                 if entry.hitl { Image(systemName: "person.fill.questionmark").help("Human in the loop") }
                 if entry.refine { Image(systemName: "wand.and.stars").help("Needs refining before it starts") }
             }

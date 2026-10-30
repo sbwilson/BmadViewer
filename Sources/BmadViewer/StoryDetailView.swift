@@ -29,6 +29,9 @@ struct StoryDetailView: View {
                 if let risk = story.risk, !risk.isEmpty {
                     Text("risk \(risk)").font(.caption).foregroundStyle(risk == "high" ? .orange : .secondary)
                 }
+                if let estimate = story.estimate, !estimate.isEmpty {
+                    Text("est \(estimate)").font(.caption).foregroundStyle(.secondary)
+                }
                 Spacer()
                 Button { store.findReferences(story.number) } label: {
                     Label("Find References", systemImage: "text.magnifyingglass")
