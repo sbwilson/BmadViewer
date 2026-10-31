@@ -15,6 +15,24 @@ open build/BmadViewer.app --args ~/dev/Qubric
 
 With no argument it reopens the most recent project; **File › Open Project…** (⌘O) picks another.
 
+## Releasing
+
+```sh
+scripts/release.sh patch --dry-run   # show the tag and the notes, change nothing
+scripts/release.sh 0.1               # tag, build, DMG, publish
+```
+
+Cuts a GitHub release from the committed state: notes generated from the commit
+subjects since the newest tag — or kept as written if you put your own
+`build/release-notes.md` there first — reviewed in your editor before anything
+is published, then an annotated tag, a release build wrapped in a DMG with an
+Applications shortcut, and a published GitHub release carrying the DMG, which
+is what the About window reads
+([About and release notes](#about-and-release-notes)). The tag is made before
+the build, so the DMG carries the version it is released as. The first release
+is `0.1`; then `patch`, `minor`, `major` or an explicit version. The build is
+signed ad-hoc, so a downloaded app needs right-click → Open once.
+
 ## What it reads (BMAD v6 layout)
 
 | Source | Used for |
@@ -69,9 +87,9 @@ A story with a recorded baseline (`baseline_commit` in a v6 spec, `baseline_revi
 
 ## Dashboard
 
-The first sidebar item, shown when a project opens.
+The first sidebar item, shown when a project opens: the overview holds the left of the window, a column of cards the right.
 
-- **Cards** (middle column), each linking to its stories: **Up next** (the build-order queue's head, or a ticket tree's in-progress and ready tickets, plus anything active the queue does not list), **Awaiting review** (review and built), **Recently completed** and **Recently created**, with how long ago.
+- **Cards** (right side), each linking to its stories: **Up next** (the build-order queue's head, or a ticket tree's in-progress and ready tickets, plus anything active the queue does not list), **Awaiting review** (review and built), **Recently completed** and **Recently created**, with how long ago.
 - **Tiles:** percent complete, built awaiting done, active, in review, open deferred work (and how much is critical or high), open retro actions, human runs owed, and the longest remaining chain. Once tickets carry `estimate`s a tile sums them — **effort remaining** over the open tickets (bare numbers weigh; a written `M` counts toward coverage, not the sum) — and the **heaviest remaining chain** shows when it is a different path than the longest one. Each opens its list.
 - **Charts:** completeness by status (a donut, in the badges' colours), throughput per week over the last 12 weeks with its average, the last 60 days of burn-up, and every epic's progress as a stacked bar (click a bar to open the epic).
 - **Health:** open deferred work by priority, stories gated by open entries, retro follow-through verdicts, owed human runs, story files that disagree with `sprint-status.yaml`, and loader warnings.
@@ -122,6 +140,11 @@ Every story, ticket, epic and work item opens in the detail view with a browser-
 Viewers: markdown rendered (with a Source toggle), `tickets.toml` as a ticket list with live status (and Source), code and text with syntax colours and line numbers, images with zoom in/out, fit and actual size (drag to pan, double-click to toggle), PDFs, folders, and an open/reveal panel for anything else. Each file tab's toolbar shows its path and opens it in the default app, Open With, or Finder.
 
 Right-click any link for Open in Tab, Open in <default app>, **Open With ›** (every app that claims the type, default first, plus Other…), Reveal in Finder and Copy Path. "Story 9.16" in text links to that story. ⌘F finds in the document. The project's files are watched and the view reloads on change.
+
+## About and release notes
+
+- **About BMAD Viewer** (app menu) opens its own window: the icon, the version and git build, the developer, and buttons to the repository, its releases and its issue tracker. The version comes from the newest git tag, applied by `scripts/make-app.sh`.
+- **Release notes** fill the window below the header, synced from the repository's **GitHub Releases** — the one place notes are written, when a tag is published. The list opens instantly from a cached copy and refreshes from the network; the refresh button re-checks GitHub, and a cached copy says so when GitHub cannot be reached. Each release gets its heading, date, and a marker against the running build (*this version*, *newer than this build*), and the notes render like story files — real links, lists and ⌘F.
 
 ## Not yet
 
