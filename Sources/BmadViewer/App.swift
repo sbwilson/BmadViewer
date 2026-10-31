@@ -15,6 +15,11 @@ struct BmadViewerApp: App {
         }
         .defaultSize(width: 1440, height: 900)
         .commands { AppCommands() }
+
+        Window("About BMAD Viewer", id: "about") {
+            AboutView()
+        }
+        .defaultSize(width: 680, height: 800)
     }
 }
 
@@ -75,6 +80,12 @@ struct AppCommands: Commands {
     @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
+        CommandGroup(replacing: .appInfo) {
+            Button("About BMAD Viewer") {
+                openWindow(id: "about")
+                NSApp.activate(ignoringOtherApps: true)
+            }
+        }
         CommandGroup(replacing: .newItem) {
             Button("Open Project…") { chooseProject() }
                 .keyboardShortcut("o")
