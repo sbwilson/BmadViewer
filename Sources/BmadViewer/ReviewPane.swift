@@ -449,10 +449,7 @@ struct ReviewCompletionBar: View {
             if unchecked.count > 6 { text += "\n… and \(unchecked.count - 6) more" }
             text += "\n\n"
         }
-        let lines = (pending ?? []).map { edit in
-            "• \(edit.url.lastPathComponent):\(edit.line)\n   \(edit.before.trimmingCharacters(in: .whitespaces))\n→ \(edit.after.trimmingCharacters(in: .whitespaces))"
-        }
-        return text + lines.joined(separator: "\n") + "\n\nOnly these lines change. Nothing is committed."
+        return text + editConfirmation(pending ?? [])
     }
 
     private func complete() {
@@ -474,4 +471,13 @@ struct ReviewCompletionBar: View {
 
 extension ReviewOrder.Stop {
     var exists: Bool { url.map { FileManager.default.fileExists(atPath: $0.path(percentEncoded: false)) } ?? false }
+}
+
+/// The lines a planned write would change, for a confirmation message. Every
+/// write made through `ReviewCompletion` shows this before applying.
+func editConfirmation(_ edits: [ReviewCompletion.Edit]) -> String {
+    let lines = edits.map { edit in
+        "• \(edit.url.lastPathComponent):\(edit.line)\n   \(edit.before.trimmingCharacters(in: .whitespaces))\n→ \(edit.after.trimmingCharacters(in: .whitespaces))"
+    }
+    return lines.joined(separator: "\n") + "\n\nOnly these lines change. Nothing is committed."
 }

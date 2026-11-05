@@ -59,6 +59,16 @@ struct WorkItemListView: View {
     let project: Project
     let kind: WorkItem.Kind
 
+    // The ledger append plans line edits and applies them through
+    // `ReviewCompletion`, the review completion's lines-then-confirm mechanism.
+    @State private var showAdd = false
+    @State private var addTitle = ""
+    @State private var addSeverity = ""
+    @State private var addOwner = ""
+    @State private var addDetail = ""
+    @State private var pending: [ReviewCompletion.Edit]?
+    @State private var failure: String?
+
     var body: some View {
         @Bindable var store = store
         let query = store.query(kind)
@@ -88,10 +98,85 @@ struct WorkItemListView: View {
                 sortMenu(query)
                 filterMenu(query, all: all)
                 if kind == .deferred, let url = project.deferredWorkFile {
+                    Button { showAdd = true } label: { Label("Add Entry…", systemImage: "plus") }
+                        .help("Append DW-\(WorkItemEdits.nextLedgerNumber(project)) to \(url.lastPathComponent)")
                     Button { store.showDocument(url) } label: { Label("Show deferred-work.md", systemImage: "doc.text") }
                         .help("Show deferred-work.md")
                 }
             }
+        }
+        .sheet(isPresented: $showAdd) { addForm }
+        .alert("Append to \(project.deferredWorkFile?.lastPathComponent ?? "deferred-work.md")?",
+               isPresented: Binding(get: { pending != nil }, set: { if !$0 { pending = nil } })) {
+            Button("Append") { apply() }
+            Button("Cancel", role: .cancel) { pending = nil }
+        } message: {
+            Text(editConfirmation(pending ?? []))
+        }
+        .alert("Could not append", isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })) {
+            Button("OK", role: .cancel) { failure = nil }
+        } message: {
+            Text(failure ?? "")
+        }
+    }
+
+    private var addForm: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("New deferred work entry").font(.headline)
+            TextField("What is owed", text: $addTitle, axis: .vertical).lineLimit(1...3)
+            Picker("Severity", selection: $addSeverity) {
+                Text("None").tag("")
+                ForEach(["critical", "high", "medium", "low"], id: \.self) { Text($0).tag($0) }
+            }
+            .fixedSize()
+            TextField("Owner", text: $addOwner)
+            TextField("Detail", text: $addDetail, axis: .vertical).lineLimit(2...6)
+            Text("Appends `### DW-\(WorkItemEdits.nextLedgerNumber(project)):` to "
+                + "\(project.deferredWorkFile?.lastPathComponent ?? "deferred-work.md"), status open, created today. "
+                + "You confirm the lines before anything is written.")
+                .font(.caption).foregroundStyle(.secondary)
+            HStack {
+                Spacer()
+                Button("Cancel", role: .cancel) { showAdd = false }
+                Button("Continue") { planAdd() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(addTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding(20)
+        .frame(width: 460)
+    }
+
+    private func planAdd() {
+        let result = WorkItemEdits.ledgerAppend(
+            title: addTitle,
+            severity: addSeverity.isEmpty ? nil : addSeverity,
+            owner: addOwner.isEmpty ? nil : addOwner,
+            detail: addDetail.isEmpty ? nil : addDetail,
+            to: project.deferredWorkFile,
+            number: WorkItemEdits.nextLedgerNumber(project)
+        )
+        switch result {
+        case .success(let edits):
+            showAdd = false
+            pending = edits
+        case .failure(let refusal):
+            failure = refusal.localizedDescription
+        }
+    }
+
+    private func apply() {
+        guard let edits = pending else { return }
+        pending = nil
+        do {
+            try ReviewCompletion.apply(edits)
+            addTitle = ""
+            addSeverity = ""
+            addOwner = ""
+            addDetail = ""
+            store.reload()
+        } catch {
+            failure = error.localizedDescription
         }
     }
 
@@ -188,6 +273,15 @@ struct WorkItemDetailView: View {
     let item: WorkItem
     let project: Project
 
+    // The write paths below plan line edits and apply them through
+    // `ReviewCompletion`, the review completion's lines-then-confirm mechanism.
+    @State private var pending: [ReviewCompletion.Edit]?
+    @State private var pendingTitle = "Record this?"
+    @State private var failure: String?
+    @State private var showRecord = false
+    @State private var progress = ""
+    @State private var resolution = ""
+
     var body: some View {
         TabbedDocumentsView(context: "work:\(item.kind.rawValue):\(item.id)", fixed: DocTab.workItemTabs(item), project: project) {
             VStack(alignment: .leading, spacing: 8) {
@@ -206,6 +300,14 @@ struct WorkItemDetailView: View {
                         }
                         .buttonStyle(.borderless)
                         .help("Everything in the BMAD artifacts that mentions \(item.label)")
+                    }
+                    if canMarkPassed {
+                        Button("Mark Passed…") { planPass() }
+                            .help("Write this \((item.section ?? "run").lowercased())'s status as passed, dated today")
+                    }
+                    if canRecord {
+                        Button("Record Progress…") { openRecord() }
+                            .help("Add a progress or resolution note to this item's block in \(project.sources.statusFile?.lastPathComponent ?? "sprint-status.yaml")")
                     }
                 }
                 Text(inlineMarkdown(item.title))
@@ -273,6 +375,90 @@ struct WorkItemDetailView: View {
             .padding(.horizontal, 20)
             .padding(.top, 14)
             .padding(.bottom, 10)
+        }
+        .alert(pendingTitle, isPresented: Binding(get: { pending != nil }, set: { if !$0 { pending = nil } })) {
+            Button("Record") { apply() }
+            Button("Cancel", role: .cancel) { pending = nil }
+        } message: {
+            Text(editConfirmation(pending ?? []))
+        }
+        .alert("Could not record", isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })) {
+            Button("OK", role: .cancel) { failure = nil }
+        } message: {
+            Text(failure ?? "")
+        }
+        .sheet(isPresented: $showRecord) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Record on \(item.id)").font(.headline).textSelection(.enabled)
+                TextField("Progress — where it stands now", text: $progress, axis: .vertical)
+                    .lineLimit(2...5)
+                TextField("Resolution — what settled it", text: $resolution, axis: .vertical)
+                    .lineLimit(2...5)
+                Text("Each line added to, or replaced on, the item's block in "
+                    + "\(project.sources.statusFile?.lastPathComponent ?? "sprint-status.yaml"). You confirm the lines before anything is written.")
+                    .font(.caption).foregroundStyle(.secondary)
+                HStack {
+                    Spacer()
+                    Button("Cancel", role: .cancel) { showRecord = false }
+                    Button("Continue") { planRecord() }
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(progress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                  && resolution.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .padding(20)
+            .frame(width: 440)
+        }
+    }
+
+    // MARK: Writing
+
+    private var isSmokeTest: Bool { item.section == "Smoke tests" }
+
+    private var canMarkPassed: Bool {
+        item.kind == .humanRun && item.status.kind != .done && (isSmokeTest || item.section == "Checkpoints")
+    }
+
+    private var canRecord: Bool {
+        item.kind == .retroAction && item.source != nil && item.source == project.sources.statusFile
+    }
+
+    private func planPass() {
+        let result = isSmokeTest ? WorkItemEdits.smokeTestPass(item) : WorkItemEdits.checkpointPass(item)
+        switch result {
+        case .success(let edits):
+            pendingTitle = "Mark \(item.label) passed?"
+            pending = edits
+        case .failure(let refusal):
+            failure = refusal.localizedDescription
+        }
+    }
+
+    private func openRecord() {
+        progress = item.value("progress") ?? ""
+        resolution = item.value("resolution") ?? ""
+        showRecord = true
+    }
+
+    private func planRecord() {
+        switch WorkItemEdits.retroActionRecord(item, in: project, progress: progress, resolution: resolution) {
+        case .success(let edits):
+            showRecord = false
+            pendingTitle = "Record on \(item.id)?"
+            pending = edits
+        case .failure(let refusal):
+            failure = refusal.localizedDescription
+        }
+    }
+
+    private func apply() {
+        guard let edits = pending else { return }
+        pending = nil
+        do {
+            try ReviewCompletion.apply(edits)
+            store.reload()
+        } catch {
+            failure = error.localizedDescription
         }
     }
 }

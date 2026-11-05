@@ -37,18 +37,12 @@ The reader must keep matching what the tools write.
 
 ## 2. Make the viewer actionable without becoming an editor
 
-BMAD's skills own writes; the viewer's job is handoff, not editing.
-
-- **Copy the run command.** On any ready ticket or story, copy the `bmad-build` /
-  `bmad-build-auto` invocation with the right spec/ticket arguments. Pairs with
-  the Next queue.
-- **Extend the previewed-edit pattern** (the `ReviewCompletion` lines-then-confirm
-  mechanism) to the other write paths it fits: marking a human run (smoke test,
-  checkpoint) passed, recording progress/resolution on a retro action, appending
-  a new `DW-` entry to the ledger.
-- **Review checklist.** Persist the `verify` items from a ticket's `tickets.toml`
-  entry or review order as local checkboxes; show unchecked items in the
-  Mark Review Complete prompt.
+BMAD's skills own writes; the viewer's job is handoff, not editing. The three
+here landed on 2026-11-02 (see [Done](#done)): copy the run command, the
+previewed-edit pattern on the other write paths, and the review checklist. What
+is left is the next write path, whatever it turns out to be, held to the same
+rule — plan the lines against the files as they read, show them, apply on
+confirm, and refuse when a line has changed underneath.
 
 ## 3. Awareness beyond the window
 
@@ -91,6 +85,14 @@ BMAD's skills own writes; the viewer's job is handoff, not editing.
   terminal, not blocked, nothing `waitsOn`. **Copy Run Command** in a ticket's
   header, **Copy Build Command** / **Copy Build Auto Command** on story and queue
   rows.
+- **The other write paths, previewed first.** 2026-11-02: `WorkItemEdits` plans
+  `smokeTestPass` (a `smoke-tests.md` row's status cell), `checkpointPass` (a
+  `checkpoints.json` entry's `"status"`), `retroActionRecord` (`progress:` /
+  `resolution:` on a `sprint-status.yaml` action item) and `ledgerAppend`
+  (`### DW-<n>:` on the deferred-work ledger), each applied through
+  `ReviewCompletion.apply`, so the lines are shown before writing and a line
+  changed since it was read stops the write. **Mark Passed…**, **Record
+  Progress…** and **Add Entry…** in the work-item views.
 - **Review checklist.** 2026-11-02: `ReviewChecklist.items(for:)` — a ticket's
   `verify` text split into items, else its review order's stops — as checkboxes in
   the review list, ticks saved per project keyed on the item text, and the unticked
