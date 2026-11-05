@@ -59,7 +59,7 @@ struct ProjectWindow: View {
     }
 
     /// A restored window reopens its project; a launch with none restores the path
-    /// argument (`BmadViewer ~/dev/Qubric`) or the most recent project.
+    /// argument (`BmadViewer ~/dev/v6app`) or the most recent project.
     private func openInitial() {
         guard store.project == nil else { return }
         if let root {

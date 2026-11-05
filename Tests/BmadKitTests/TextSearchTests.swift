@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import BmadKit
 
-private let fixture = Bundle.module.url(forResource: "Fixtures/qubric-shaped", withExtension: nil)!
+private let fixture = Bundle.module.url(forResource: "Fixtures/v6app-shaped", withExtension: nil)!
 
 @Suite struct TextSearchTests {
     /// The fixture copied into a git repository, with one file ignored.

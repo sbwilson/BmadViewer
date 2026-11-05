@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import BmadKit
 
-private let v6 = Bundle.module.url(forResource: "Fixtures/qubric-shaped", withExtension: nil)!
+private let v6 = Bundle.module.url(forResource: "Fixtures/v6app-shaped", withExtension: nil)!
 private let v7 = Bundle.module.url(forResource: "Fixtures/ticket-tree", withExtension: nil)!
 
 @Suite struct DeferredWorkTests {

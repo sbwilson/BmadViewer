@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import BmadKit
 
-private let v6 = Bundle.module.url(forResource: "Fixtures/qubric-shaped", withExtension: nil)!
+private let v6 = Bundle.module.url(forResource: "Fixtures/v6app-shaped", withExtension: nil)!
 
 /// The writes beyond review completion — a smoke test or checkpoint recorded as
 /// passed, a note on a retro action, a new ledger entry. Each is planned as line

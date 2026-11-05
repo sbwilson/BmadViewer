@@ -23,11 +23,11 @@ the Sparkle feed.
 ## Run
 
 ```sh
-swift run BmadViewer ~/dev/Qubric        # debug, unbundled
+swift run BmadViewer ~/dev/v6app        # debug, unbundled
 swift test                               # the suite
 scripts/make-app.sh                      # build/debug/ and build/release/BmadViewer.app
 scripts/make-app.sh --install            # …and copy the release to ~/Applications
-open build/release/BmadViewer.app --args ~/dev/Qubric
+open build/release/BmadViewer.app --args ~/dev/v6app
 ```
 
 With no argument it reopens the most recent project; **File › Open Project…** (⌘O) picks another.

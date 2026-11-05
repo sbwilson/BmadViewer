@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import BmadKit
 
-private let fixture = Bundle.module.url(forResource: "Fixtures/qubric-shaped", withExtension: nil)!
+private let fixture = Bundle.module.url(forResource: "Fixtures/v6app-shaped", withExtension: nil)!
 
 @Suite struct ReviewOrderTests {
     let review: ReviewOrder
@@ -21,7 +21,7 @@ private let fixture = Bundle.module.url(forResource: "Fixtures/qubric-shaped", w
         let first = try #require(review.stops.first)
         #expect(first.framing == "The entry point: mirrors `create`'s branch.")
         #expect(first.label == "endpoint.rs:2")
-        #expect(first.url?.path(percentEncoded: false).hasSuffix("/qubric-shaped/crates/foundation/src/endpoint.rs") == true)
+        #expect(first.url?.path(percentEncoded: false).hasSuffix("/v6app-shaped/crates/foundation/src/endpoint.rs") == true)
         #expect(first.lines == LineRange(2))
         #expect(review.stops[1].lines == LineRange(1, 3))
     }
@@ -80,7 +80,7 @@ private let fixture = Bundle.module.url(forResource: "Fixtures/qubric-shaped", w
         #expect(story.frontMatter["status"] == "done")
         let yaml = try String(contentsOf: copy.appending(path: "docs/bmad/implementation-artifacts/sprint-status.yaml"), encoding: .utf8)
         #expect(yaml.contains("9-15-a-story-left-in-review: done   # keep this comment"))
-        #expect(yaml.contains("# Header comment, as Qubric keeps one."))
+        #expect(yaml.contains("# Header comment, as v6app keeps one."))
     }
 
     @Test func refusesAQueuedStoryADoneOneAndOneNotInReview() throws {
