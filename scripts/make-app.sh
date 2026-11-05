@@ -55,11 +55,20 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 PLIST
 
 codesign --force --sign - "$APP" >/dev/null
+
+# The rm -rf above takes the registered bundle away and the new one is, to
+# Launch Services, a stranger wearing its clothes; without this it keeps the
+# stale entry and Finder and the Dock show a blank icon until the cache
+# clears on its own — which is what makes the icon look like it vanished
+# after every rebuild.
+LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+"$LSREGISTER" -f "$APP"
 echo "Built $APP"
 
 if [[ "${1:-}" == "--install" ]]; then
   mkdir -p ~/Applications
   rm -rf ~/Applications/BmadViewer.app
   cp -R "$APP" ~/Applications/
+  "$LSREGISTER" -f ~/Applications/BmadViewer.app
   echo "Installed ~/Applications/BmadViewer.app"
 fi
