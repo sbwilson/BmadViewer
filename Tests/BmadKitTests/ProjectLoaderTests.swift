@@ -69,6 +69,17 @@ private let fixture = Bundle.module.url(forResource: "Fixtures/qubric-shaped", w
         #expect(!Status("built").isTerminal)
     }
 
+    @Test func epicStatusBreakdownCountsEveryStatusInChartOrder() {
+        // Epic 9 is review, ready and backlog: three arcs, and not one of them done.
+        let nine = project.epics[1].statusBreakdown
+        #expect(nine.map(\.kind) == [.review, .ready, .backlog])
+        #expect(nine.map(\.count) == [1, 1, 1])
+        #expect(nine.reduce(0) { $0 + $1.count } == project.epics[1].stories.count)
+        // Epic 1 is finished; epic 2 exists only as the story nobody wants any more.
+        #expect(project.epics[0].statusBreakdown.map(\.kind) == [.done])
+        #expect(project.epics[2].statusBreakdown.map(\.kind) == [.superseded])
+    }
+
     @Test func queuedStoriesCarryWhatTheyWaitOn() throws {
         #expect(try #require(project.story(number: "9.17")).waitsOn == ["9.16", "9.15"])
     }

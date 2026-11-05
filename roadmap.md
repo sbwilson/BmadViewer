@@ -78,6 +78,12 @@ confirm, and refuse when a line has changed underneath.
 
 ## Done
 
+- **Every status in the sidebar ring.** 2026-11-03: `Epic.statusBreakdown` counts
+  an epic's stories per status kind in `Status.Kind.chartOrder` (the order the
+  dashboard charts in, now shared rather than duplicated), and the sidebar's
+  epic ring draws one arc per status in the badge colours instead of a single
+  done-of-total turn — so `built`, `review` and a blocked ticket each show.
+  Hovering an epic lists the counts.
 - **Handoff, run commands.** 2026-11-02: `RunCommand.command(for:in:auto:)` builds
   the `bmad-build` / `bmad-build-auto` line — `ticket <epic>.<entry>` for a tree
   ticket, `ticket <path>` for a backlog ticket with no ref, the root-relative spec

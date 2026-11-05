@@ -9,6 +9,10 @@ public struct Status: Hashable, Sendable {
 
         public static func < (a: Kind, b: Kind) -> Bool { a.rawValue < b.rawValue }
 
+        /// The order charts and rings draw statuses in: what is finished first,
+        /// then what is owed. Colours come from `color` in the viewer.
+        public static let chartOrder: [Kind] = [.done, .built, .review, .inProgress, .blocked, .ready, .backlog, .optional, .other, .superseded]
+
         public var label: String {
             switch self {
             case .blocked: "Blocked"
@@ -150,6 +154,22 @@ public struct Epic: Identifiable, Hashable, Sendable {
     }
 
     public var builtCount: Int { stories.filter { $0.status.kind == .built }.count }
+
+    /// The epic's stories by status, in chart order and without the empty ones.
+    /// What the sidebar's ring paints, so a built ticket shows as an arc of its
+    /// own instead of hiding among the unfinished.
+    public var statusBreakdown: [StatusCount] {
+        let counts = Dictionary(grouping: stories, by: { $0.status.kind })
+        return Status.Kind.chartOrder.compactMap { kind in
+            counts[kind].map { StatusCount(kind: kind, count: $0.count) }
+        }
+    }
+}
+
+/// One status's share of an epic: how many of its stories sit there.
+public struct StatusCount: Hashable, Sendable {
+    public let kind: Status.Kind
+    public let count: Int
 }
 
 /// One row of the queue: a build-order table row, or a v7 ticket that is next.

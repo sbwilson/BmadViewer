@@ -73,6 +73,16 @@ private let fixture = Bundle.module.url(forResource: "Fixtures/ticket-tree", wit
         #expect(project.epics[0].documents.map(\.lastPathComponent) == ["epic-ledger-core.md", "tickets.toml", "epic-ledger-core-retrospective.md"])
     }
 
+    @Test func statusBreakdownSplitsTheRingIntoArcs() {
+        // Half done, half built: the ring needs both arcs, not a half-turn of green.
+        let ledger = project.epics[0].statusBreakdown
+        #expect(ledger.map(\.kind) == [.done, .built])
+        #expect(ledger.map(\.count) == [1, 1])
+        let workspace = project.epics[1].statusBreakdown
+        #expect(workspace.map(\.kind) == [.inProgress, .backlog])
+        #expect(workspace.map(\.count) == [1, 3])
+    }
+
     @Test func nextGroupsLikeTicketsPyNext() {
         let groups = Dictionary(uniqueKeysWithValues: project.queue.map { ($0.heading, $0.entries.map(\.storyNumber)) })
         #expect(project.queue.map(\.heading) == ["In progress", "Built — awaiting done", "Ready to refine", "Blocked"])

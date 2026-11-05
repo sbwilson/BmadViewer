@@ -112,7 +112,7 @@ struct EpicRow: View {
     var body: some View {
         let (finished, total) = epic.progress
         HStack(spacing: 8) {
-            ProgressRing(fraction: total == 0 ? 0 : Double(finished) / Double(total), status: epic.status)
+            ProgressRing(breakdown: epic.statusBreakdown, total: total)
             VStack(alignment: .leading, spacing: 1) {
                 Text(epic.title).lineLimit(2)
                 Text("\(epic.number.map { "Epic \($0) · " } ?? "")\(finished)/\(total)\(epic.builtCount > 0 ? " · \(epic.builtCount) built" : "") · \(epic.status.raw)")
@@ -120,21 +120,50 @@ struct EpicRow: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .help(epic.retrospective.map { "Retrospective: \($0.raw)" } ?? "")
+        .help(hint)
+    }
+
+    /// What the ring's arcs stand for, since six of them at sixteen points
+    /// across is not something anyone can name by colour alone.
+    private var hint: String {
+        let counts = epic.statusBreakdown.map { "\($0.count) \($0.kind.label.lowercased())" }.joined(separator: " · ")
+        let retro = epic.retrospective.map { "Retrospective: \($0.raw)" }
+        return [counts.isEmpty ? nil : counts, retro].compactMap { $0 }.joined(separator: "\n")
     }
 }
 
+/// How far an epic has come, drawn one arc per status in the badges' colours —
+/// green done, indigo built, purple review — so an epic that is half built and
+/// half done reads that way rather than as stalled.
 struct ProgressRing: View {
-    let fraction: Double
-    let status: Status
+    /// The statuses present, in chart order.
+    let breakdown: [StatusCount]
+    let total: Int
 
     var body: some View {
-        ZStack {
-            Circle().stroke(.quaternary, lineWidth: 3)
-            Circle()
-                .trim(from: 0, to: fraction)
-                .stroke(status.color, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                .rotationEffect(.degrees(-90))
+        Canvas { context, size in
+            let line = 3.0
+            let centre = CGPoint(x: size.width / 2, y: size.height / 2)
+            let radius = (min(size.width, size.height) - line) / 2
+            var track = Path()
+            track.addArc(center: centre, radius: radius, startAngle: .zero, endAngle: .degrees(360), clockwise: false)
+            context.stroke(track, with: .style(.quaternary), lineWidth: line)
+            guard total > 0 else { return }
+            // A hair of daylight between arcs, so an equal pair does not read as
+            // one colour — but never so much that a lone story disappears. Flat
+            // caps: a round one reaches beyond its arc by half the line width,
+            // which at this radius is more than the gap itself.
+            let gap = breakdown.count > 1 ? 4.0 : 0.0
+            var start = Angle.degrees(-90)
+            for slice in breakdown {
+                let sweep = Angle.degrees(360 * Double(slice.count) / Double(total))
+                let inset = min(gap / 2, sweep.degrees / 4)
+                var arc = Path()
+                arc.addArc(center: centre, radius: radius, startAngle: start + .degrees(inset),
+                           endAngle: start + sweep - .degrees(inset), clockwise: false)
+                context.stroke(arc, with: .color(slice.kind.color), lineWidth: line)
+                start += sweep
+            }
         }
         .frame(width: 16, height: 16)
     }

@@ -225,7 +225,7 @@ private struct Panel<Content: View>: View {
 }
 
 /// The order and colours statuses are charted in, matching the badges.
-private let chartKinds: [Status.Kind] = [.done, .built, .review, .inProgress, .blocked, .ready, .backlog, .optional, .other, .superseded]
+private let chartKinds = Status.Kind.chartOrder
 
 private struct CompletenessChart: View {
     let stories: [Story]
