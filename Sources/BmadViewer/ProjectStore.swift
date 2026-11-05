@@ -288,16 +288,30 @@ final class ProjectStore {
 
     var recents: [URL] { Self.recentProjects }
 
+    /// Folders recently opened, newest first, each spelled one way. An open panel
+    /// and a command line disagree about the trailing slash, so without this the
+    /// welcome window lists one project twice — and re-opening it adds a third.
     static var recentProjects: [URL] {
-        (UserDefaults.standard.stringArray(forKey: recentsKey) ?? []).map { URL(filePath: $0) }
+        var seen = Set<String>()
+        return (UserDefaults.standard.stringArray(forKey: recentsKey) ?? [])
+            .map { URL(filePath: $0).standardizedFileURL }
+            .filter { seen.insert($0.path).inserted }
+    }
+
+    /// Drops a folder from the list; the welcome window offers this for paths that
+    /// have since gone, and for ones nobody means to reopen.
+    static func forget(_ url: URL) {
+        let path = url.standardizedFileURL.path
+        UserDefaults.standard.set(recentProjects.map(\.path).filter { $0 != path }, forKey: recentsKey)
     }
 
     func open(_ url: URL) {
+        let url = url.standardizedFileURL
         sidebar = .dashboard
         selectedStoryID = nil
         load(url)
-        var list = recents.map { $0.path(percentEncoded: false) }.filter { $0 != url.path(percentEncoded: false) }
-        list.insert(url.path(percentEncoded: false), at: 0)
+        var list = Self.recentProjects.map(\.path).filter { $0 != url.path }
+        list.insert(url.path, at: 0)
         UserDefaults.standard.set(Array(list.prefix(10)), forKey: Self.recentsKey)
         NSDocumentController.shared.noteNewRecentDocumentURL(url)
     }

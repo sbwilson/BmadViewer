@@ -16,6 +16,18 @@ struct BmadViewerApp: App {
         .defaultSize(width: 1440, height: 900)
         .commands { AppCommands() }
 
+        // The fallback window, shown when the last project window closes. A
+        // secondary scene stays shut until something asks for it, which is what
+        // `WindowRouter` does; it is never restored, because a launch either has
+        // projects to open or has nothing to show yet.
+        Window("Welcome", id: WindowRouter.welcomeScene) {
+            WelcomeWindowView()
+        }
+        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentMinSize)
+        .defaultSize(width: 660, height: 520)
+        .defaultPosition(.center)
+
         Window("About BMAD Viewer", id: "about") {
             AboutView()
         }
@@ -39,6 +51,7 @@ struct ProjectWindow: View {
             .focusedSceneValue(\.openProject, OpenProjectAction { url in
                 if store.project == nil { store.open(url) } else { openWindow(value: url) }
             })
+            .background(WindowRole(.project))
             .task { openInitial() }
             .onChange(of: store.project?.root) { _, new in
                 if let new, new != root { root = new }
@@ -80,6 +93,12 @@ struct AppCommands: Commands {
     @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
+        // AppKit cannot ask for a SwiftUI scene by id, so the router borrows the
+        // opener from here — commands live exactly as long as the menu bar does,
+        // which is the whole of the app, and it needs the welcome window after
+        // every project window has gone.
+        let _ = WindowRouter.shared.capture(openWindow)
+
         CommandGroup(replacing: .appInfo) {
             Button("About BMAD Viewer") {
                 openWindow(id: "about")
@@ -147,12 +166,7 @@ struct AppCommands: Commands {
     }
 
     private func chooseProject() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.prompt = "Open Project"
-        panel.message = "Choose a folder containing a BMAD project"
-        if panel.runModal() == .OK, let url = panel.url { open(url) }
+        ProjectPicker.present { open($0) }
     }
 
     /// Into the front window when it is empty; otherwise its own window (an open
@@ -296,9 +310,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // When run unbundled (`swift run`) the process starts as a background app.
         NSApp.setActivationPolicy(.regular)
         NSApp.activate()
+        WindowRouter.shared.startWatching()
     }
 
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+    /// Closing a window does not end the app: `WindowRouter` quits when the
+    /// welcome window goes, and hands over to it when a project window does.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    /// Clicking the Dock icon with nothing open: the front door, not a new
+    /// empty project window.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        guard !flag else { return true }
+        WindowRouter.shared.showWelcome()
+        return true
+    }
 }
 
 /// Routes Find menu commands to the document's text view, wherever focus is.

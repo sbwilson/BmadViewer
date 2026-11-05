@@ -78,6 +78,16 @@ confirm, and refuse when a line has changed underneath.
 
 ## Done
 
+- **The welcome window.** 2026-11-03: closing the last project window hands over
+  to a `Window(id: "welcome")` scene — vibrant backdrop, the recent folders with
+  their disk icons, a gone folder marked and unopenable, right-click for Finder
+  or Remove. `WindowRouter` watches windows: a project appearing orders the
+  welcome out (never closes — closing it is what quits), the welcome closing with
+  no projects left terminates the app, and ⌘W works on it through the existing
+  close-tab-or-window command. AppKit cannot ask SwiftUI for a scene by id, so
+  the router borrows the `OpenWindowAction` from `AppCommands`, which lives as
+  long as the menu bar does. Recents are standardised and deduped on the way in
+  and out, since an open panel and the CLI disagree about trailing slashes.
 - **Every status in the sidebar ring.** 2026-11-03: `Epic.statusBreakdown` counts
   an epic's stories per status kind in `Status.Kind.chartOrder` (the order the
   dashboard charts in, now shared rather than duplicated), and the sidebar's
