@@ -79,6 +79,18 @@ A story with a recorded baseline (`baseline_commit` in a v6 spec, `baseline_revi
 
 `BMADV_DIFF=17.5 BmadViewer --dump <project>` prints a story's range and whether each stop's lines appear in its diff.
 
+## Handing a story to Build
+
+The viewer does not build anything; it hands off. A story or ticket Build could take — not finished, not blocked, nothing still `waitsOn` — offers **Copy Run Command** in its header, and **Copy Build Command** / **Copy Build Auto Command** in its row's right-click menu, for the queue too. The line is what upstream's dispatcher takes, so it works in a fresh agent chat at the project root:
+
+| Project | Attended | Unattended |
+| --- | --- | --- |
+| ticket tree | `/bmad-build ticket 12.1` | `/bmad-build-auto ticket 12.1` |
+| ticket tree, backlog (no ref) | `/bmad-build ticket _bmad-output/backlog/spike-drill-stall.md` | `/bmad-build-auto ticket …` |
+| sprint-status | `/bmad-build docs/bmad/implementation-artifacts/spec-9-15-….md` | `/bmad-build-auto …` |
+
+A tree ticket is named by its `<epic id>.<entry id>` ref, which is the viewer's story number; a backlog ticket has no ref, so its file is named by root-relative path. A sprint-status story is named by its spec file, because Build resumes from the status in that file's front matter — a story with no spec file yet has nothing Build can open, so no command is offered. `bmad-build` keeps you at the checkpoints; `bmad-build-auto` never asks.
+
 ## Windows, tabs and history
 
 - **One window per project.** **Open Project…** (⌘O) and **Open Recent** open a project in its own window, or bring its window to the front if it is already open; an empty window takes the project in place. **New Window** (⌘N) opens an empty one. Each window keeps its own selection, tabs and history, and macOS reopens every project's window on the next launch.

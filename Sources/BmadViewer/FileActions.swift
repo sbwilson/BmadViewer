@@ -23,6 +23,11 @@ enum FileActions {
         NSPasteboard.general.setString(url.isFileURL ? url.path(percentEncoded: false) : url.absoluteString, forType: .string)
     }
 
+    static func copy(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+    }
+
     static func defaultApplication(for url: URL) -> URL? {
         NSWorkspace.shared.urlForApplication(toOpen: url)
     }

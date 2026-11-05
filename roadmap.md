@@ -84,6 +84,13 @@ BMAD's skills own writes; the viewer's job is handoff, not editing.
 
 ## Done
 
+- **Handoff, run commands.** 2026-11-02: `RunCommand.command(for:in:auto:)` builds
+  the `bmad-build` / `bmad-build-auto` line — `ticket <epic>.<entry>` for a tree
+  ticket, `ticket <path>` for a backlog ticket with no ref, the root-relative spec
+  file for a sprint-status story — offered only where Build can take the story: not
+  terminal, not blocked, nothing `waitsOn`. **Copy Run Command** in a ticket's
+  header, **Copy Build Command** / **Copy Build Auto Command** on story and queue
+  rows.
 - **Aggregate effort.** 2026-10-30: `Story.estimate` from `tickets.toml` entries
   and front matter, the `Effort` summary, the dashboard's effort-remaining and
   heaviest-remaining-chain tiles, estimate-weighted chain listing in the

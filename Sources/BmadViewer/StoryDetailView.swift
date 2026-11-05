@@ -32,6 +32,7 @@ struct StoryDetailView: View {
                     Text("est \(estimate)").font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
+                RunCommandMenu(story: story, project: project)
                 Button { store.findReferences(story.number) } label: {
                     Label("Find References", systemImage: "text.magnifyingglass")
                 }
@@ -87,6 +88,37 @@ struct StoryDetailView: View {
         .padding(.horizontal, 20)
         .padding(.top, 14)
         .padding(.bottom, 10)
+    }
+}
+
+/// Copies the Build invocation for this story, to paste into a fresh agent chat:
+/// `bmad-build` keeps you at the checkpoints, `bmad-build-auto` is the unattended
+/// dispatch. Shown only when Build has an argument it can resolve — a ticket ref
+/// in a tree, a spec file in a sprint-status project — for a story it may take.
+struct RunCommandMenu: View {
+    let story: Story
+    let project: Project
+
+    var body: some View {
+        // Both shapes exist together or neither does: they differ only in their word.
+        if let run = RunCommand.command(for: story, in: project),
+           let auto = RunCommand.command(for: story, in: project, auto: true) {
+            Menu {
+                Button { FileActions.copy(run) } label: {
+                    Text(run).font(.callout.monospaced())
+                }
+                .help("One run with you at the checkpoints")
+                Button { FileActions.copy(auto) } label: {
+                    Text(auto).font(.callout.monospaced())
+                }
+                .help("One unattended run; it never asks")
+            } label: {
+                Label("Copy Run Command", systemImage: "terminal")
+            }
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("Copy the bmad-build invocation for this ticket — paste it into a fresh agent chat")
+        }
     }
 }
 

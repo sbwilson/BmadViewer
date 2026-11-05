@@ -39,6 +39,7 @@ struct StatusBadge: View {
 
 struct StoryRow: View {
     let story: Story
+    let project: Project
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -68,6 +69,12 @@ struct StoryRow: View {
         }
         .padding(.vertical, 2)
         .contextMenu {
+            if let run = RunCommand.command(for: story, in: project),
+               let auto = RunCommand.command(for: story, in: project, auto: true) {
+                Button("Copy Build Command") { FileActions.copy(run) }
+                Button("Copy Build Auto Command") { FileActions.copy(auto) }
+                Divider()
+            }
             if let url = story.primaryFile { FileContextMenu(url: url) }
         }
     }
@@ -96,13 +103,13 @@ struct StoryListView: View {
                 }
             }
             if case .epic = store.sidebar {
-                ForEach(stories) { StoryRow(story: $0).tag($0.id) }
+                ForEach(stories) { StoryRow(story: $0, project: project).tag($0.id) }
             } else {
                 // Grouped by status, most active first.
                 let groups = Dictionary(grouping: stories, by: \.status.kind)
                 ForEach(groups.keys.sorted(), id: \.self) { kind in
                     Section("\(kind.label) (\(groups[kind]!.count))") {
-                        ForEach(groups[kind]!) { StoryRow(story: $0).tag($0.id) }
+                        ForEach(groups[kind]!) { StoryRow(story: $0, project: project).tag($0.id) }
                     }
                 }
             }
@@ -138,7 +145,7 @@ struct QueueView: View {
                             .font(.callout)
                     }
                     ForEach(section.entries) { entry in
-                        QueueRow(entry: entry, story: project.story(number: entry.storyNumber))
+                        QueueRow(entry: entry, story: project.story(number: entry.storyNumber), project: project)
                             .tag(project.story(number: entry.storyNumber)?.id ?? entry.id)
                     }
                 } header: {
@@ -160,6 +167,7 @@ struct QueueView: View {
 struct QueueRow: View {
     let entry: QueueEntry
     let story: Story?
+    let project: Project
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -187,6 +195,13 @@ struct QueueRow: View {
             }
         }
         .padding(.vertical, 3)
+        .contextMenu {
+            if let story, let run = RunCommand.command(for: story, in: project),
+               let auto = RunCommand.command(for: story, in: project, auto: true) {
+                Button("Copy Build Command") { FileActions.copy(run) }
+                Button("Copy Build Auto Command") { FileActions.copy(auto) }
+            }
+        }
     }
 }
 
