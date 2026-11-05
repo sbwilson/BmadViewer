@@ -164,8 +164,13 @@ struct DashboardView: View {
                 Panel("Epics") { EpicProgressChart(project: project) }
             }
             .padding(20)
+            // Stretch with the column until the charts have a comfortable measure,
+            // then hold that width and centre, leaving space on either side.
+            .frame(maxWidth: 1000)
+            .frame(maxWidth: .infinity)
         }
         .task(id: store.lastLoaded) { store.loadBurnupIfNeeded() }
+        .background(OverviewResizePriority())
     }
 
     private var subtitle: String {
@@ -174,6 +179,70 @@ struct DashboardView: View {
             parts.append("last status change \(last.date.formatted(.relative(presentation: .named)))")
         }
         return parts.joined(separator: " · ")
+    }
+}
+
+/// Gives the overview column the window's resizing to itself: the sidebar and
+/// the cards are asked to hold their width, so making the window wider or
+/// narrower changes only the middle. SwiftUI has no API for this — the levers
+/// are AppKit's holding priorities on the split view items the columns sit in,
+/// found by walking the responder chain. A column yields space to whichever
+/// item holds least, and SwiftUI starts them at 260/255/250 with the detail
+/// lowest, which is why the cards grew with the window until now. The sides
+/// move just above the overview's priority, whatever it happens to be, and
+/// leaving the dashboard puts them back.
+private struct OverviewResizePriority: NSViewRepresentable {
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: .zero)
+        // There is no window, and so no split view controller, until it lands.
+        DispatchQueue.main.async { [weak view] in context.coordinator.apply(from: view) }
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        // Again after every pass: SwiftUI may rebuild the items it holds.
+        DispatchQueue.main.async { [weak view] in context.coordinator.apply(from: view) }
+    }
+
+    static func dismantleNSView(_ view: NSView, coordinator: Coordinator) {
+        coordinator.restore()
+    }
+
+    final class Coordinator {
+        private var items: [NSSplitViewItem] = []
+        private var saved: [ObjectIdentifier: NSLayoutConstraint.Priority] = [:]
+
+        func apply(from view: NSView?) {
+            guard let found = Self.splitItems(from: view), found.count >= 3 else { return }
+            items = found
+            for item in found where saved[ObjectIdentifier(item)] == nil {
+                saved[ObjectIdentifier(item)] = item.holdingPriority
+            }
+            let hold = NSLayoutConstraint.Priority(found[1].holdingPriority.rawValue + 100)
+            for side in [found[0], found[2]] where side.holdingPriority < hold {
+                side.holdingPriority = hold
+            }
+        }
+
+        func restore() {
+            for item in items {
+                if let priority = saved[ObjectIdentifier(item)] { item.holdingPriority = priority }
+            }
+        }
+
+        /// The split view controller answers for a plain view somewhere above
+        /// the column's contents, so the responder chain, not the controller
+        /// tree, is the way to it.
+        private static func splitItems(from view: NSView?) -> [NSSplitViewItem]? {
+            var responder: NSResponder? = view
+            while let current = responder {
+                if let split = current as? NSSplitViewController { return split.splitViewItems }
+                responder = current.nextResponder
+            }
+            return nil
+        }
     }
 }
 

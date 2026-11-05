@@ -112,16 +112,21 @@ struct ProjectView: View {
                 default: StoryListView(project: project)
                 }
             }
-            // The dashboard's overview wants more width than a list does; the
-            // cards that sit beside it in the detail column want less.
+            // The dashboard's overview wants more width than a list does, so the
+            // overview column is the one that absorbs a wide window (10_000 means
+            // "no cap": the cards beside it stop growing early, and if every
+            // column were capped the split view could not fill the window). The
+            // overview's own content caps and centres further in.
             .navigationSplitViewColumnWidth(
                 min: store.sidebar == .dashboard ? 480 : 280,
                 ideal: store.sidebar == .dashboard ? 640 : 360,
-                max: store.sidebar == .dashboard ? 900 : 520)
+                max: store.sidebar == .dashboard ? 10_000 : 520)
         } detail: {
             if store.sidebar == .dashboard {
+                // The cards scale with a drag up to 560 — past that the rows
+                // stretch past readable — and refuse to grow any further.
                 DashboardCardsView(project: project)
-                    .navigationSplitViewColumnWidth(min: 280, ideal: 360, max: 480)
+                    .navigationSplitViewColumnWidth(min: 280, ideal: 360, max: 560)
             } else if store.sidebar == .graph {
                 DependencyGraphView(project: project)
             } else if store.sidebar == .burnup {
