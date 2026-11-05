@@ -91,6 +91,9 @@ public struct Story: Identifiable, Hashable, Sendable {
     /// The ticket's `estimate` as written: `3`, `1.5`, `M`. From the `tickets.toml`
     /// entry or front matter; only bare numbers are summed, see `Effort`.
     public var estimate: String?
+    /// The ticket's `verify` text as written in `tickets.toml`; what the review
+    /// checklist walks, see `ReviewChecklist`.
+    public var verify: String?
     /// The story document's Suggested Review Order, when it has one.
     public var review: ReviewOrder?
     /// Stories this one comes after (ids). Resolved `after` in a ticket tree; inferred

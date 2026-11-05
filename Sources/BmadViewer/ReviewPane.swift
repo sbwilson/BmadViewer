@@ -56,6 +56,7 @@ struct ReviewPaneView: View {
         let loaded = try? changes?.get()
         let groups = itemGroups(loaded)
         let items = groups.flatMap(\.items)
+        let checklist = ReviewChecklist.items(for: story)
         let selection = Binding<String?>(
             get: { store.reviewSelection[story.id] ?? items.first?.id },
             set: { store.reviewSelection[story.id] = $0 }
@@ -69,6 +70,15 @@ struct ReviewPaneView: View {
                     ForEach(groups, id: \.title) { group in
                         Section(group.title) {
                             ForEach(group.items) { ReviewItemRow(item: $0, changes: loaded, projectRoot: project.root).tag(Optional($0.id)) }
+                        }
+                    }
+                    if !checklist.isEmpty {
+                        Section("Verify") {
+                            ForEach(checklist, id: \.self) { item in
+                                Toggle(isOn: store.reviewCheckBinding(storyID: story.id, item: item)) {
+                                    Text(item).font(.callout).lineLimit(3)
+                                }
+                            }
                         }
                     }
                 }
@@ -431,10 +441,18 @@ struct ReviewCompletionBar: View {
     }
 
     private var confirmation: String {
+        var text = ""
+        let unchecked = store.uncheckedReviewItems(story)
+        if !unchecked.isEmpty {
+            text += "\(unchecked.count) checklist \(unchecked.count == 1 ? "item" : "items") unchecked:\n"
+            text += unchecked.prefix(6).map { "☐ \($0)" }.joined(separator: "\n")
+            if unchecked.count > 6 { text += "\n… and \(unchecked.count - 6) more" }
+            text += "\n\n"
+        }
         let lines = (pending ?? []).map { edit in
             "• \(edit.url.lastPathComponent):\(edit.line)\n   \(edit.before.trimmingCharacters(in: .whitespaces))\n→ \(edit.after.trimmingCharacters(in: .whitespaces))"
         }
-        return lines.joined(separator: "\n") + "\n\nOnly these lines change. Nothing is committed."
+        return text + lines.joined(separator: "\n") + "\n\nOnly these lines change. Nothing is committed."
     }
 
     private func complete() {

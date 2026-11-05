@@ -91,6 +91,10 @@ BMAD's skills own writes; the viewer's job is handoff, not editing.
   terminal, not blocked, nothing `waitsOn`. **Copy Run Command** in a ticket's
   header, **Copy Build Command** / **Copy Build Auto Command** on story and queue
   rows.
+- **Review checklist.** 2026-11-02: `ReviewChecklist.items(for:)` — a ticket's
+  `verify` text split into items, else its review order's stops — as checkboxes in
+  the review list, ticks saved per project keyed on the item text, and the unticked
+  ones named in the Mark Review Complete prompt.
 - **Aggregate effort.** 2026-10-30: `Story.estimate` from `tickets.toml` entries
   and front matter, the `Effort` summary, the dashboard's effort-remaining and
   heaviest-remaining-chain tiles, estimate-weighted chain listing in the

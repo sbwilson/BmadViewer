@@ -310,6 +310,7 @@ public enum TicketTree {
             s.risk = r.entry?.risk ?? (r.leafFields["risk"] as? String)
             s.estimate = (r.entry?.estimate.map(\.description) ?? (r.leafFields["estimate"] as? String))
                 .flatMap { $0.isEmpty ? nil : $0 }
+            s.verify = r.entry?.verify.flatMap { $0.isEmpty ? nil : $0 }
             s.dependsOn = r.after.filter { byKey[$0] != nil }
             s.dependsOnEpics = r.after.filter { byKey[$0] == nil } + r.gatedBy
             s.hitl = r.entry?.hitl == true || r.leafFields["hitl"] as? Bool == true

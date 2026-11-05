@@ -1,6 +1,7 @@
 import AppKit
 import BmadKit
 import Observation
+import SwiftUI
 
 enum SidebarItem: Hashable {
     case dashboard
@@ -266,6 +267,11 @@ final class ProjectStore {
     var reviewSelection: [Story.ID: String] = [:]
     /// Where each story's review range ends.
     var reviewEnd: [Story.ID: GitDiff.End] = [:]
+    /// The review checklist's ticks: checked item texts per story. The text is the
+    /// key so a rewritten `verify` asks again rather than inherit stale ticks.
+    var checkedReviewItems: [String: Set<String>] = [:] {
+        didSet { if checkedReviewItems != oldValue { saveReviewChecks() } }
+    }
     /// The epic whose own documents fill the detail view, until a story is chosen.
     var epicDocsShown: String?
     /// Open file tabs per story, ticket, epic or work item, saved per project.
@@ -330,6 +336,7 @@ final class ProjectStore {
                 if rewatch {
                     loadTabs(p.root)
                     loadQueries(p.root)
+                    loadChecks(p.root)
                 }
                 indexQuickOpen(p, fresh: rewatch)
             case .failure(let e):
@@ -413,6 +420,39 @@ final class ProjectStore {
     func query(_ kind: WorkItem.Kind) -> WorkItemQuery { workQueries[kind.rawValue] ?? WorkItemQuery() }
 
     func setQuery(_ query: WorkItemQuery, for kind: WorkItem.Kind) { workQueries[kind.rawValue] = query }
+
+    // MARK: Review checklist
+
+    func isChecked(storyID: Story.ID, item: String) -> Bool { checkedReviewItems[storyID]?.contains(item) ?? false }
+
+    func reviewCheckBinding(storyID: Story.ID, item: String) -> Binding<Bool> {
+        Binding(
+            get: { self.isChecked(storyID: storyID, item: item) },
+            set: { on in
+                var set = self.checkedReviewItems[storyID] ?? []
+                if on { set.insert(item) } else { set.remove(item) }
+                self.checkedReviewItems[storyID] = set
+            }
+        )
+    }
+
+    /// The story's checklist items not yet ticked, for the Mark Review Complete prompt.
+    func uncheckedReviewItems(_ story: Story) -> [String] {
+        let checked = checkedReviewItems[story.id] ?? []
+        return ReviewChecklist.items(for: story).filter { !checked.contains($0) }
+    }
+
+    private func checksKey(_ root: URL) -> String { "reviewChecks:\(root.path(percentEncoded: false))" }
+
+    private func loadChecks(_ root: URL) {
+        checkedReviewItems = UserDefaults.standard.data(forKey: checksKey(root))
+            .flatMap { try? JSONDecoder().decode([String: Set<String>].self, from: $0) } ?? [:]
+    }
+
+    private func saveReviewChecks() {
+        guard let root = project?.root, let data = try? JSONEncoder().encode(checkedReviewItems) else { return }
+        UserDefaults.standard.set(data, forKey: checksKey(root))
+    }
 
     private func queriesKey(_ root: URL) -> String { "workQueries:\(root.path(percentEncoded: false))" }
 
