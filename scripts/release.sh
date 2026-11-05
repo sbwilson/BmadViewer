@@ -80,7 +80,7 @@ fi
 
 if (( DRY )); then
   print "from ${PREV_TAG:-the whole history} to HEAD → $TAG"
-  print "would build build/BmadViewer-$NEXT.dmg and publish it with these notes:\n"
+  print "would build build/dmg/BmadViewer-$NEXT.dmg and publish it with these notes:\n"
   cat "$NOTES"
   exit 0
 fi
@@ -114,16 +114,18 @@ git tag -a "$TAG" -m "$TAG"
 print "Tagged $TAG on $(git rev-parse --short HEAD) ($BRANCH)"
 
 scripts/make-app.sh
-BUNDLED="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' build/BmadViewer.app/Contents/Info.plist)"
+APP=build/release/BmadViewer.app
+BUNDLED="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
 [[ "$BUNDLED" == "$NEXT" ]] || { print -u2 "the build carries $BUNDLED, not $NEXT"; exit 1; }
-codesign --verify --strict build/BmadViewer.app
+codesign --verify --strict "$APP"
 
 # ---------- DMG: the app beside an Applications shortcut, drag to install ----------
-DMG="build/BmadViewer-$NEXT.dmg"
+mkdir -p build/dmg
+DMG="build/dmg/BmadViewer-$NEXT.dmg"
 STAGE=build/dmg-staging
 rm -rf "$STAGE" "$DMG"
 mkdir "$STAGE"
-cp -R build/BmadViewer.app "$STAGE/"
+cp -R "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
 hdiutil create -quiet -volname "BMAD Viewer" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
 rm -rf "$STAGE"

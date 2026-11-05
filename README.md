@@ -8,9 +8,9 @@ SwiftUI shell, AppKit text view (TextKit 1) for documents, no web view.
 
 ```sh
 swift run BmadViewer ~/dev/Qubric        # debug, unbundled
-scripts/make-app.sh                      # build/BmadViewer.app
-scripts/make-app.sh --install            # …and copy to ~/Applications
-open build/BmadViewer.app --args ~/dev/Qubric
+scripts/make-app.sh                      # build/debug/ and build/release/BmadViewer.app
+scripts/make-app.sh --install            # …and copy the release to ~/Applications
+open build/release/BmadViewer.app --args ~/dev/Qubric
 ```
 
 With no argument it reopens the most recent project; **File › Open Project…** (⌘O) picks another.
