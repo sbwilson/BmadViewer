@@ -2,7 +2,8 @@
 # Cuts a GitHub release: notes from the commits since the newest tag, an
 # annotated tag, a release build wrapped in a DMG, and a published release
 # carrying that DMG — the About window reads GitHub Releases, so this is where
-# notes come to exist.
+# notes come to exist. The DMG is signed for Sparkle and an appcast.xml is
+# published beside it, so installed apps can update themselves.
 #
 #   scripts/release.sh patch              # bump the newest tag (first cut: 0.1)
 #   scripts/release.sh 0.3.0              # or name the version
@@ -131,11 +132,55 @@ hdiutil create -quiet -volname "BMAD Viewer" -srcfolder "$STAGE" -ov -format UDZ
 rm -rf "$STAGE"
 print "Built $DMG"
 
+# ---------- Sparkle: sign the DMG and publish an appcast ----------
+# The feed lives at releases/latest/download/appcast.xml, so every release
+# uploads one. The private half of the signing key lives outside the repo;
+# losing it means no future update is trusted by installed apps.
+# (A --prerelease cut is invisible to /latest; give pre-releases their own feed
+# if that ever matters.)
+KEY="${SPARKLE_PRIVATE_KEY:-$HOME/.sparkle/BmadViewer-ed25519.key}"
+[[ -f "$KEY" ]] || { print -u2 "no Sparkle signing key at $KEY — set SPARKLE_PRIVATE_KEY"; exit 1; }
+TOOLS=build/tools
+[[ -x "$TOOLS/sign_update" ]] || {
+  print "fetching Sparkle signing tools…"
+  mkdir -p "$TOOLS"
+  curl -sL https://github.com/sparkle-project/Sparkle/releases/download/2.10.1/Sparkle-2.10.1.tar.xz \
+    | tar -xJ -C "$TOOLS" --strip-components=1 ./bin/sign_update
+}
+SIGNATURE="$("$TOOLS/sign_update" --ed-key-file "$KEY" -p "$DMG")"
+[[ -n "$SIGNATURE" ]] || { print -u2 "sign_update produced no signature"; exit 1; }
+SIZE="$(stat -f %z "$DMG")"
+APPCAST=build/dmg/appcast.xml
+cat > "$APPCAST" <<XML
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <title>BMAD Viewer Releases</title>
+    <link>https://github.com/sbwilson/BmadViewer</link>
+    <description>BMAD Viewer updates.</description>
+    <language>en</language>
+    <item>
+      <title>BMAD Viewer $NEXT</title>
+      <link>https://github.com/sbwilson/BmadViewer/releases/tag/$TAG</link>
+      <pubDate>$(date -R)</pubDate>
+      <sparkle:version>$NEXT</sparkle:version>
+      <sparkle:shortVersionString>$NEXT</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/sbwilson/BmadViewer/releases/download/$TAG/$(basename "$DMG")"
+                 sparkle:edSignature="$SIGNATURE"
+                 length="$SIZE"
+                 type="application/octet-stream"/>
+    </item>
+  </channel>
+</rss>
+XML
+print "Signed the DMG and wrote $APPCAST"
+
 # ---------- publish ----------
 git push origin "$BRANCH"
 git push origin "$TAG"
 PUSHED=1
-gh release create "$TAG" "$DMG" \
+gh release create "$TAG" "$DMG" "$APPCAST" \
   --title "BMAD Viewer $NEXT" \
   --notes-file "$NOTES" \
   "${PRE[@]}"

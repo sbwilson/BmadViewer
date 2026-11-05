@@ -31,7 +31,12 @@ is what the About window reads
 ([About and release notes](#about-and-release-notes)). The tag is made before
 the build, so the DMG carries the version it is released as. The first release
 is `0.1`; then `patch`, `minor`, `major` or an explicit version. The build is
-signed ad-hoc, so a downloaded app needs right-click → Open once.
+signed ad-hoc, so a downloaded app needs right-click → Open once. The DMG is
+signed for Sparkle and an `appcast.xml` is published beside it, so installed
+apps take updates from the stable feed
+`releases/latest/download/appcast.xml`. The Sparkle signing key lives outside
+the repo (`~/.sparkle/BmadViewer-ed25519.key`, public half committed) — losing
+it means no installed app ever accepts an update again.
 
 ## What it reads (BMAD v6 layout)
 
@@ -161,6 +166,7 @@ Right-click any link for Open in Tab, Open in <default app>, **Open With ›** (
 ## About and release notes
 
 - **About BMAD Viewer** (app menu) opens its own window: the icon, the version and git build, the developer, and buttons to the repository, its releases and its issue tracker. The version comes from the newest git tag, applied by `scripts/make-app.sh`.
+- **Check for Updates…** (app menu) keeps a release build current through [Sparkle](https://sparkle-project.org/): once asked to check automatically — the first prompt — the app checks its release feed at launch and daily, and on demand here; an update downloads, is verified, and the app replaces itself and relaunches. Because the bundle is signed only ad-hoc, the trust anchor is the EdDSA signature on the DMG — `scripts/release.sh` makes it with the private key whose public half ships in `scripts/sparkle-public-key.txt`. The debug bundle has no feed and no menu item.
 - **Release notes** fill the window below the header, synced from the repository's **GitHub Releases** — the one place notes are written, when a tag is published. The list opens instantly from a cached copy and refreshes from the network; the refresh button re-checks GitHub, and a cached copy says so when GitHub cannot be reached. Each release gets its heading, date, and a marker against the running build (*this version*, *newer than this build*), and the notes render like story files — real links, lists and ⌘F.
 
 ## Not yet

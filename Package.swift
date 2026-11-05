@@ -12,6 +12,9 @@ let package = Package(
         .package(url: "https://github.com/jpsim/Yams.git", from: "6.0.0"),
         .package(url: "https://github.com/swiftlang/swift-markdown.git", from: "0.5.0"),
         .package(url: "https://github.com/dduan/TOMLDecoder.git", from: "0.4.0"),
+        // Self-updating. make-app.sh embeds the framework and signs it;
+        // scripts/release.sh signs the DMG and publishes the appcast.
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.7.0"),
     ],
     targets: [
         // Pure model + loaders: no AppKit, so it is testable headless.
@@ -25,6 +28,7 @@ let package = Package(
             dependencies: [
                 "BmadKit",
                 .product(name: "Markdown", package: "swift-markdown"),
+                .product(name: "Sparkle", package: "Sparkle"),
             ],
             // The icon source: scripts/make-app.sh turns it into the bundle's .icns.
             exclude: ["icon.png"]

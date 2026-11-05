@@ -105,6 +105,13 @@ struct AppCommands: Commands {
                 NSApp.activate(ignoringOtherApps: true)
             }
         }
+        CommandGroup(after: .appInfo) {
+            // The debug bundle has no feed, and the item would only promise
+            // an error there, so it belongs to release builds alone.
+            if AppUpdater.shared.isConfigured {
+                Button("Check for Updates…") { AppUpdater.shared.checkForUpdates() }
+            }
+        }
         CommandGroup(replacing: .newItem) {
             Button("Open Project…") { chooseProject() }
                 .keyboardShortcut("o")
@@ -311,6 +318,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate()
         WindowRouter.shared.startWatching()
+        // Live from the first moment, so Sparkle's automatic check runs too.
+        _ = AppUpdater.shared
     }
 
     /// Closing a window does not end the app: `WindowRouter` quits when the

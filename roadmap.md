@@ -78,6 +78,21 @@ confirm, and refuse when a line has changed underneath.
 
 ## Done
 
+- **Self-updating.** 2026-11-05: Sparkle (2.10.1, via SwiftPM) behind **Check for
+  Updates…** — `AppUpdater` owns the standard controller as a singleton the app
+  touches at launch. `make-app.sh` embeds `Sparkle.framework`, adds the
+  `@executable_path/../Frameworks` rpath SwiftPM's binary lacks, re-signs the
+  nested XPC services and `Updater.app` before the app seals the bundle, and
+  writes `SUFeedURL`, `SUPublicEDKey` and `SUEnableAutomaticChecks` into the
+  release Info.plist only — the debug twin gets no feed and no menu item.
+  `release.sh` signs the DMG with `sign_update` and publishes an `appcast.xml`
+  release asset, so the feed is the stable `releases/latest/download/appcast.xml`.
+  With an ad-hoc app signature the EdDSA signature on the archive is the trust
+  anchor (Sparkle accepts either, and refuses an update that strips the bundle's
+  EdDSA key or identifier). The keypair came from openssl, since Sparkle's
+  `generate_keys` wants the Keychain; the private half lives in
+  `~/.sparkle/BmadViewer-ed25519.key`, outside the repo. The full chain —
+  check, download, verify, swap, relaunch — passed end to end.
 - **The welcome window.** 2026-11-03: closing the last project window hands over
   to a `Window(id: "welcome")` scene — vibrant backdrop, the recent folders with
   their disk icons, a gone folder marked and unopenable, right-click for Finder
